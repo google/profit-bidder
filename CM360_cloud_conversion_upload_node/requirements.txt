@@ -1,0 +1,7 @@
+google-auth
+google-api-python-client
+google-cloud-bigquery
+google-cloud-pubsub
+google-cloud-storage
+google-auth-httplib2
+pytz
