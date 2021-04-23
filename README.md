@@ -90,12 +90,12 @@ For this step you may [create a new project instance](https://cloud.google.com/a
       - **SA360** (1 per advertiser, as needed) [[link](https://cloud.google.com/bigquery-transfer/docs/sa360-transfer)]
         - **Display Name:** Any
         - **Schedule:** Daily (recommended to run early morning, ex: 4AM EST)
-        - **Dataset ID:** Google Merchant Center dataset created in Step 6
+        - **Dataset ID:** Relevant SA360 Advertiser dataset created in Step 6
         - **Agency/Advertiser ID:** Both IDs can be found in SA360
       - **Google Merchant Center** [[link](https://cloud.google.com/bigquery-transfer/docs/merchant-center-transfer)]
         - **Display Name:** Any
         - **Schedule:** Daily (recommended to run early morning, ex: 4AM EST)
-        - **Dataset ID:** Relevant advertiser dataset created in Step 6
+        - **Dataset ID:** Google Merchant Center dataset created in Step 6
         - **Merchant ID:** ID can be found in GMC
         - For this project only the **Products & product issues** option is required and  should be checked.
 
