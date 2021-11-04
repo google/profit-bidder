@@ -50,6 +50,8 @@ BACKGROUND=0
 CREATE_SERVICE_ACCOUNT=0
 USERNAME=0
 ADMIN=
+SERVICE_ACCOUNT_NAME="profit-bidder"
+STORAGE_BUCKET_NAME="conversion-upload_log"
 
 # Command line parser
 while [[ $1 == -* ]] ; do
@@ -138,14 +140,16 @@ fi
 
 # create service account
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
-  ${DRY_RUN} gcloud iam service-accounts create profit-bidder --description "Profit Bidder Service Account" --project ${PROJECT}
+  echo "Creating service account '${SERVICE_ACCOUNT_NAME}'"
+  ${DRY_RUN} gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description "Profit Bidder Service Account" --project ${PROJECT}
 fi
 
 
 # create cloud storage bucket
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
+  echo "Creating storage accounts"
   # Create buckets
-  for bucket in conversion-upload_log; do
+  for bucket in ${STORAGE_BUCKET_NAME}; do
     gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then
@@ -156,19 +160,21 @@ fi
 
 # create bq datasets
 if [ ${DEPLOY_BQ} -eq 1 ]; then
+  echo "Creating BQ datasets"
   # Create dataset
   for dataset in sa360_data gmc_data business_data; do
-    bq --project_id=${PROJECT} show --dataset ${DATASET} > /dev/null 2>&1
+    echo "Creating BQ dataset: '${dataset}'" 
+    bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1
     RETVAL=$?
     if (( $RETVAL != "0" )); then
-      ${DRY_RUN} bq --project_id=${PROJECT} mk --dataset ${DATASET}
+      ${DRY_RUN} bq --project_id=${PROJECT} mk --dataset ${dataset}
     fi
   done
 fi
 
-echo ${DEPLOY_DELEGATOR}
 # create cloud funtions
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
+  echo "Creating Cloud functions"
  # Create scheduled job
   ${DRY_RUN} gcloud beta scheduler jobs delete \
     --project=${PROJECT} \
@@ -182,17 +188,17 @@ if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
     --message-body="RUN" \
     --project=${PROJECT}
 
-  echo "Deploying Delegator Cloud Function"
   ${DRY_RUN} gcloud functions deploy "cloud_conversion_upload_delegator" \
     --region=us-central1 \
     --trigger-topic=conversion_upload_delegator \
     --memory=2GB \
     --timeout=540s \
     --runtime python37 \
-    --entry-point=main \
+    --entry-point=main 
 fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
+  echo "Creating CM360 Cloud Function"
  # Create scheduled job
   ${DRY_RUN} gcloud beta scheduler jobs delete \
     --project=${PROJECT} \
@@ -213,6 +219,7 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
     --memory=256MB \
     --timeout=540s \
     --runtime python37 \
-    --entry-point=main \
+    --entry-point=main
 fi
 
+echo 'Script ran successfully!'
