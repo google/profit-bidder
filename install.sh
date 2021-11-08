@@ -223,13 +223,16 @@ if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
     --project=${PROJECT} || echo "scheduler failed!"
 
   echo "Deploying Delegator Cloud Function"
+  pushd converion_upload_delegator
   maybe-run gcloud functions deploy "cloud_conversion_upload_delegator" \
     --region=us-central1 \
+    --project=${PROJECT} \
     --trigger-topic=conversion_upload_delegator \
     --memory=2GB \
     --timeout=540s \
     --runtime python37 \
     --entry-point=main 
+  popd
 fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
@@ -249,14 +252,17 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
     --message-body="RUN" \
     --project=${PROJECT} || echo "scheduler failed!"
 
- echo "Deploying CM360 Cloud Function"
+  echo "Deploying CM360 Cloud Function"
+  pushd SA360_cloud_converion_upload_node
   maybe-run gcloud functions deploy "cm360_cloud_conversion_upload_node" \
     --region=us-central1 \
+    --project=${PROJECT} \
     --trigger-topic=cm360_conversion_upload \
     --memory=256MB \
     --timeout=540s \
     --runtime python37 \
     --entry-point=main
+  popd
 fi
 
 echo 'Script ran successfully!'
