@@ -1,3 +1,5 @@
+#!/bin/bash -eu
+
 # Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,9 +54,15 @@ USERNAME=0
 ADMIN=
 SERVICE_ACCOUNT_NAME="profit-bidder"
 STORAGE_BUCKET_NAME="conversion-upload_log"
+DEPLOY_BQ=0
+DEPLOY_CM360_FUNCTION=0
+DEPLOY_DELEGATOR=0
+DEPLOY_STORAGE=0
+DRY_RUN=""
+VERBOSE=false
 
 # Command line parser
-while [[ $1 == -* ]] ; do
+while [[ ${1:-} == -* ]] ; do
   case $1 in
     --project*)
       IFS="=" read _cmd PROJECT <<< "$1" && [ -z ${PROJECT} ] && shift && PROJECT=$1
@@ -91,6 +99,9 @@ while [[ $1 == -* ]] ; do
     --dry-run)
       DRY_RUN=echo
       ;;
+    --verbose)
+      VERBOSE=true
+      ;;
     --no-code)
       DEPLOY_CODE=0
       ;;
@@ -102,6 +113,20 @@ while [[ $1 == -* ]] ; do
   shift
 done
 
+function maybe-run {
+    if [ "${DRY_RUN:-}" = "echo" ]; then
+        echo "$@"
+    else
+        if [ "$VERBOSE" = "true" ]; then
+            echo "$@"
+        fi
+        "$@"
+    fi
+}
+
+if [ "${DRY_RUN:-}" = "echo" ]; then
+    echo "--dry-run enabled: commands will be echoed instead of executed"
+fi
 
 if [ -z "${PROJECT}" ]; then
   usage
@@ -116,44 +141,50 @@ fi
 
 if [ ${ACTIVATE_APIS} -eq 1 ]; then
   # Check for active APIs
+  echo "Activating APIs"
   APIS_USED=(
     "bigquery"
     "bigquerystorage"
     "bigquerydatatransfer"
+    "cloudbuild"
     "cloudfunctions"
+    "cloudscheduler"
     "doubleclickbidmanager"
     "doubleclicksearch"
     "pubsub"
     "storage-api"
   )
-  ACTIVE_SERVICES="$(gcloud --project=${PROJECT} services list | cut -f 1 -d' ' | grep -v NAME)"
+  ACTIVE_SERVICES="$(gcloud --project=${PROJECT} services list --enabled '--format=value(config.name)')"
 
   for api in ${APIS_USED[@]}; do
     if [[ "${ACTIVE_SERVICES}" =~ ${api} ]]; then
       echo "${api} already active"
     else
       echo "Activating ${api}"
-      ${DRY_RUN} gcloud --project=${PROJECT} services enable ${api}.googleapis.com
+      maybe-run gcloud --project=${PROJECT} services enable ${api}.googleapis.com
     fi
   done
 fi
 
 # create service account
+SA_EMAIL=${SA_NAME}@${PROJECT}.iam.gserviceaccount.com
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
-  echo "Creating service account '${SERVICE_ACCOUNT_NAME}'"
-  ${DRY_RUN} gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description "Profit Bidder Service Account" --project ${PROJECT}
+  if !gcloud iam service-accounts describe $SA_EMAIL &> /dev/null; then 
+    echo "Creating service account '${SERVICE_ACCOUNT_NAME}'"
+    maybe-run gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description 'Profit Bidder Service Account' --project ${PROJECT}
+  fi
 fi
 
 
 # create cloud storage bucket
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
-  echo "Creating storage accounts"
   # Create buckets
+  echo "Creating buckets"
   for bucket in ${STORAGE_BUCKET_NAME}; do
     gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then
-      ${DRY_RUN} gsutil mb -p ${PROJECT} gs://${PROJECT}-${bucket}
+      maybe-run gsutil mb -p ${PROJECT} gs://${PROJECT}-${bucket}
     fi
   done
 fi
@@ -162,33 +193,38 @@ fi
 if [ ${DEPLOY_BQ} -eq 1 ]; then
   echo "Creating BQ datasets"
   # Create dataset
+  echo "Creating datasets"  
   for dataset in sa360_data gmc_data business_data; do
     echo "Creating BQ dataset: '${dataset}'" 
     bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1
     RETVAL=$?
     if (( $RETVAL != "0" )); then
-      ${DRY_RUN} bq --project_id=${PROJECT} mk --dataset ${dataset}
+      maybe-run bq --project_id=${PROJECT} mk --dataset ${dataset}
     fi
   done
 fi
 
+echo "Deploy Delegator: ${DEPLOY_DELEGATOR}"
 # create cloud funtions
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Creating Cloud functions"
  # Create scheduled job
-  ${DRY_RUN} gcloud beta scheduler jobs delete \
+  maybe-run gcloud beta scheduler jobs delete \
+    --location=us-central \
     --project=${PROJECT} \
     --quiet \
-    "delegator-scheduler"
+    "delegator-scheduler" || echo "No job to delete" 
 
-  ${DRY_RUN} gcloud beta scheduler jobs create pubsub \
+  maybe-run gcloud beta scheduler jobs create pubsub \
     "delegator" \
+    --location=us-central \
     --schedule="0 6 * * *" \
     --topic="conversion_upload_delegator" \
     --message-body="RUN" \
-    --project=${PROJECT}
+    --project=${PROJECT} || echo "scheduler failed!"
 
-  ${DRY_RUN} gcloud functions deploy "cloud_conversion_upload_delegator" \
+  echo "Deploying Delegator Cloud Function"
+  maybe-run gcloud functions deploy "cloud_conversion_upload_delegator" \
     --region=us-central1 \
     --trigger-topic=conversion_upload_delegator \
     --memory=2GB \
@@ -200,20 +236,22 @@ fi
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   echo "Creating CM360 Cloud Function"
  # Create scheduled job
-  ${DRY_RUN} gcloud beta scheduler jobs delete \
+  maybe-run gcloud beta scheduler jobs delete \
+    --location=us-central \
     --project=${PROJECT} \
     --quiet \
-    "cm360-scheduler"
+    "cm360-scheduler" || echo "No job to delete"
 
-  ${DRY_RUN} gcloud beta scheduler jobs create pubsub \
-    "cm360-scheduler"
+  maybe-run gcloud beta scheduler jobs create pubsub \
+    "cm360-scheduler" \
+    --location=us-central \
     --schedule="0 6 * * *" \
     --topic="conversion_upload_delegator" \
     --message-body="RUN" \
-    --project=${PROJECT}
+    --project=${PROJECT} || echo "scheduler failed!"
 
  echo "Deploying CM360 Cloud Function"
-  ${DRY_RUN} gcloud functions deploy "cm360_cloud_conversion_upload_node" \
+  maybe-run gcloud functions deploy "cm360_cloud_conversion_upload_node" \
     --region=us-central1 \
     --trigger-topic=cm360_conversion_upload \
     --memory=256MB \
@@ -223,3 +261,7 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
 fi
 
 echo 'Script ran successfully!'
+# NOTES:
+# More automation may be needed?
+# * creation of pubsub topiocs
+# If gcloud scheduler fails, the user should be instructed to setup the scheduler in the cloud console
