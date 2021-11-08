@@ -167,7 +167,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
 fi
 
 # create service account
-SA_EMAIL=${SA_NAME}@${PROJECT}.iam.gserviceaccount.com
+SA_EMAIL=${SERVICE_ACCOUNT_NAME}@${PROJECT}.iam.gserviceaccount.com
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   if !gcloud iam service-accounts describe $SA_EMAIL &> /dev/null; then 
     echo "Creating service account '${SERVICE_ACCOUNT_NAME}'"
