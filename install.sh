@@ -196,9 +196,8 @@ if [ ${DEPLOY_BQ} -eq 1 ]; then
   echo "Creating datasets"  
   for dataset in sa360_data gmc_data business_data; do
     echo "Creating BQ dataset: '${dataset}'" 
-    bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1
     RETVAL=$?
-    if (( $RETVAL != "0" )); then
+    if ! bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1; then
       maybe-run bq --project_id=${PROJECT} mk --dataset ${dataset}
     fi
   done
