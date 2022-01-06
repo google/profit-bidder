@@ -113,7 +113,7 @@ while [[ ${1:-} == -* ]] ; do
   shift
 done
 
-function maybe-run {
+function maybe_run {
     if [ "${DRY_RUN:-}" = "echo" ]; then
         echo "$@"
     else
@@ -161,7 +161,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
       echo "${api} already active"
     else
       echo "Activating ${api}"
-      maybe-run gcloud --project=${PROJECT} services enable ${api}.googleapis.com
+      maybe_run gcloud --project=${PROJECT} services enable ${api}.googleapis.com
     fi
   done
 fi
@@ -171,7 +171,7 @@ SA_EMAIL=${SERVICE_ACCOUNT_NAME}@${PROJECT}.iam.gserviceaccount.com
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
   if !gcloud iam service-accounts describe $SA_EMAIL &> /dev/null; then 
     echo "Creating service account '${SERVICE_ACCOUNT_NAME}'"
-    maybe-run gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description 'Profit Bidder Service Account' --project ${PROJECT}
+    maybe_run gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description 'Profit Bidder Service Account' --project ${PROJECT}
   fi
 fi
 
@@ -184,7 +184,7 @@ if [ ${DEPLOY_STORAGE} -eq 1 ]; then
     gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket} > /dev/null 2>&1
     RETVAL=$?
     if (( ${RETVAL} != "0" )); then
-      maybe-run gsutil mb -p ${PROJECT} gs://${PROJECT}-${bucket}
+      maybe_run gsutil mb -p ${PROJECT} gs://${PROJECT}-${bucket}
     fi
   done
 fi
@@ -198,7 +198,7 @@ if [ ${DEPLOY_BQ} -eq 1 ]; then
     echo "Creating BQ dataset: '${dataset}'" 
     RETVAL=$?
     if ! bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1; then
-      maybe-run bq --project_id=${PROJECT} mk --dataset ${dataset}
+      maybe_run bq --project_id=${PROJECT} mk --dataset ${dataset}
     fi
   done
 fi
@@ -208,13 +208,13 @@ echo "Deploy Delegator: ${DEPLOY_DELEGATOR}"
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Creating Cloud functions"
  # Create scheduled job
-  maybe-run gcloud beta scheduler jobs delete \
+  maybe_run gcloud beta scheduler jobs delete \
     --location=us-central \
     --project=${PROJECT} \
     --quiet \
     "delegator-scheduler" || echo "No job to delete" 
 
-  maybe-run gcloud beta scheduler jobs create pubsub \
+  maybe_run gcloud beta scheduler jobs create pubsub \
     "delegator" \
     --location=us-central \
     --schedule="0 6 * * *" \
@@ -224,7 +224,7 @@ if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
 
   echo "Deploying Delegator Cloud Function"
   pushd converion_upload_delegator
-  maybe-run gcloud functions deploy "cloud_conversion_upload_delegator" \
+  maybe_run gcloud functions deploy "cloud_conversion_upload_delegator" \
     --region=us-central1 \
     --project=${PROJECT} \
     --trigger-topic=conversion_upload_delegator \
@@ -238,13 +238,13 @@ fi
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   echo "Creating CM360 Cloud Function"
  # Create scheduled job
-  maybe-run gcloud beta scheduler jobs delete \
+  maybe_run gcloud beta scheduler jobs delete \
     --location=us-central \
     --project=${PROJECT} \
     --quiet \
     "cm360-scheduler" || echo "No job to delete"
 
-  maybe-run gcloud beta scheduler jobs create pubsub \
+  maybe_run gcloud beta scheduler jobs create pubsub \
     "cm360-scheduler" \
     --location=us-central \
     --schedule="0 6 * * *" \
@@ -254,7 +254,7 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
 
   echo "Deploying CM360 Cloud Function"
   pushd SA360_cloud_converion_upload_node
-  maybe-run gcloud functions deploy "cm360_cloud_conversion_upload_node" \
+  maybe_run gcloud functions deploy "cm360_cloud_conversion_upload_node" \
     --region=us-central1 \
     --project=${PROJECT} \
     --trigger-topic=cm360_conversion_upload \
