@@ -23,7 +23,7 @@ Usage:
   install.sh [options]
 Options:
   --project         GCP Project Id
-  --dataset         The Big Query dataset to verify or create
+  --datasets        Comma seprated Big Query datasets to verify or create
 Deployment directives:
   --activate-apis   Activate all missing but required Cloud APIs
   --create-service-account
@@ -45,7 +45,7 @@ function join { local IFS="$1"; shift; echo "$*"; }
 # Switch definitions
 PROJECT=
 USER=
-DATASET="profitbidder"
+DATASETS="sa360_data,gmc_data,business_data"
 
 ACTIVATE_APIS=0
 BACKGROUND=0
@@ -67,8 +67,8 @@ while [[ ${1:-} == -* ]] ; do
     --project*)
       IFS="=" read _cmd PROJECT <<< "$1" && [ -z ${PROJECT} ] && shift && PROJECT=$1
       ;;
-    --dataset*)
-      IFS="=" read _cmd DATASET <<< "$1" && [ -z ${DATASET} ] && shift && DATASET=$1
+    --datasets*)
+      IFS="=" read _cmd DATASETS <<< "$1" && [ -z ${DATASETS} ] && shift && DATASET=$1
       ;;
     --deploy-all)
       DEPLOY_BQ=1
@@ -194,7 +194,8 @@ if [ ${DEPLOY_BQ} -eq 1 ]; then
   echo "Creating BQ datasets"
   # Create dataset
   echo "Creating datasets"  
-  for dataset in sa360_data gmc_data business_data; do
+  # for dataset in sa360_data gmc_data business_data; do
+  for dataset in $(echo $DATASETS | tr "," "\n"); do
     echo "Creating BQ dataset: '${dataset}'" 
     RETVAL=$?
     if ! bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1; then
