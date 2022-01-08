@@ -31,6 +31,12 @@ Options with default values:
   --storage-logs    Storage Account to upload conversion logs
   --storage-profit  Storage Account to upload the profit data
   --profit-file     Filename along with path containing the profit data
+  --delegator-pubsub-topic  PubSub topic name for the Delegator processing
+  --cf-delegator            Cloud Function name for the Delegator processing logic
+  --scheduler_delegator     Scheduler name for the Delegator CF
+  --cm360-pubsub-topic      PubSub topic name for the CM360 processing
+  --cf-cm360                Cloud Function name for the CM360 processing logic
+  --scheduler_cm360         Scheduler name for the CM360 CF
 Deployment directives:
   --activate-apis   Activate all missing but required Cloud APIs
   --create-service-account
@@ -41,16 +47,15 @@ Deployment directives:
   --deploy-delegator Create delegator cloud function
   --deploy-cm360-function Create cm360 cloud function
   --deploy-profit-data Upload and create client_margin_data_table
-Alert!-Deletes GCP resources. Limited amount of clean up activities.
-  --delete-solution 
 General switches:
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
+  --delete-solution Alert!-Deletes GCP resources. Useful for unit testing.
 
 Example:
-sh install.sh --dry-run --deploy-all --project=dpani-sandbox
-sh install.sh --dry-run --deploy-profit-data  --project=dpani-sandbox --dataset-profit=my_profit_ds --storage-profit=my_profit_sa --profit-file=my/path/file.csv
-sh install.sh --dry-run --deploy-all --project=dpani-sandbox --dataset-sa360=my_sa360  --dataset-gmc=my_gmc --dataset-profit=my_profit --storage-logs=my_con_log  --storage-profit=my_profit_csv
+sh install.sh --dry-run --deploy-all --project=<project_id>
+sh install.sh --dry-run --deploy-profit-data  --project=<project_id> --dataset-profit=my_profit_ds --storage-profit=my_profit_sa --profit-file=my/path/file.csv
+sh install.sh --dry-run --deploy-all --project=<project_id> --dataset-sa360=my_sa360  --dataset-gmc=my_gmc --dataset-profit=my_profit --storage-logs=my_con_log  --storage-profit=my_profit_csv
 
 EOF
 }
@@ -69,6 +74,12 @@ STORAGE_PROFIT=$SOLUTION_PREFIX"profit_data"
 CLIENT_MARGIN_DATA_TABLE_NAME="client_margin_data_table"
 CLIENT_MARGIN_DATA_FILE_NAME="client_profit.csv"
 CLIENT_MARGIN_DATA_FILE_WITH_PATH=`echo $HOME`/$CLIENT_MARGIN_DATA_FILE_NAME
+DELEGATOR_PUBSUB_TOPIC_NAME=$SOLUTION_PREFIX"conversion_upload_delegator"
+CF_DELEGATOR=$SOLUTION_PREFIX"cloud_conversion_upload_delegator"
+SCHEDULER_DELGATOR=$SOLUTION_PREFIX"delegator-scheduler"
+CF_CM360=$SOLUTION_PREFIX"cm360_cloud_conversion_upload_node"
+CM360_PUBSUB_TOPIC_NAME=$SOLUTION_PREFIX"cm360_conversion_upload"
+SCHEDULER_CM360=$SOLUTION_PREFIX"cm360-scheduler"
 
 ACTIVATE_APIS=0
 CREATE_SERVICE_ACCOUNT=0
@@ -112,6 +123,24 @@ while [[ ${1:-} == -* ]] ; do
       ;;
     --profit-file*)
       IFS="=" read _cmd CLIENT_MARGIN_DATA_FILE <<< "$1" && [ -z ${CLIENT_MARGIN_DATA_FILE} ] && shift && CLIENT_MARGIN_DATA_FILE=$1
+      ;;
+    --cf-delegator*)
+      IFS="=" read _cmd CF_DELEGATOR <<< "$1" && [ -z ${CF_DELEGATOR} ] && shift && CF_DELEGATOR=$1
+      ;;
+    --scheduler_delegator*)
+      IFS="=" read _cmd SCHEDULER_DELGATOR <<< "$1" && [ -z ${SCHEDULER_DELGATOR} ] && shift && SCHEDULER_DELGATOR=$1
+      ;;
+    --delegator-pubsub-topic*)
+      IFS="=" read _cmd DELEGATOR_PUBSUB_TOPIC_NAME <<< "$1" && [ -z ${DELEGATOR_PUBSUB_TOPIC_NAME} ] && shift && DELEGATOR_PUBSUB_TOPIC_NAME=$1
+      ;;
+    --cf-cm360*)
+      IFS="=" read _cmd CF_CM360 <<< "$1" && [ -z ${CF_CM360} ] && shift && CF_CM360=$1
+      ;;
+    --scheduler_cm360*)
+      IFS="=" read _cmd SCHEDULER_CM360 <<< "$1" && [ -z ${SCHEDULER_CM360} ] && shift && SCHEDULER_CM360=$1
+      ;;
+    --cm360-pubsub-topic*)
+      IFS="=" read _cmd CM360_PUBSUB_TOPIC_NAME <<< "$1" && [ -z ${CM360_PUBSUB_TOPIC_NAME} ] && shift && CM360_PUBSUB_TOPIC_NAME=$1
       ;;
     --deploy-all)
       DEPLOY_BQ=1
@@ -195,7 +224,7 @@ function create_bq_ds {
   if ! bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1; then
     maybe_run bq --project_id=${PROJECT} mk --dataset ${dataset}
   else
-    echo "Resuing ${dataset}."
+    echo "Reusing ${dataset}."
   fi
 }
 
@@ -207,7 +236,45 @@ function create_storage_account {
   if (( ${RETVAL} != "0" )); then
     maybe_run gsutil mb -p ${PROJECT} gs://${PROJECT}-${bucket}
   else
-    echo "Resuing ${PROJECT}-${bucket}."
+    echo "Reusing ${PROJECT}-${bucket}."
+  fi
+}
+
+function create_cloud_function {
+  cf_name=$1
+  mem=$2
+  trigger_topic=$3
+  echo "Creating Cloud Function: $cf_name"
+  gcloud functions describe $cf_name > /dev/null 2>&1
+  RETVAL=$?
+  if (( ${RETVAL} != "0" )); then
+    maybe_run gcloud functions deploy "$cf_name" \
+      --region=us-central1 \
+      --project=${PROJECT} \
+      --trigger-topic=$trigger_topic \
+      --memory=$2 \
+      --timeout=540s \
+      --runtime python37 \
+      --entry-point=main 
+  else
+    echo "Reusing ${cf_name}."
+  fi
+}
+
+function create_scheduler {
+  scheduler_name=$1
+  topic=$2
+  echo "Creating Scheduler: $scheduler_name"
+  gcloud scheduler jobs describe $scheduler_name > /dev/null 2>&1
+  RETVAL=$?
+  if (( ${RETVAL} != "0" )); then
+    maybe_run gcloud beta scheduler jobs create pubsub \
+      "$scheduler_name" \
+      --schedule="0 6 * * *" \
+      --topic="$topic" \
+      --message-body="RUN" 
+  else
+    echo "Reusing ${scheduler_name}."
   fi
 }
 
@@ -238,12 +305,36 @@ function delete_storage_account {
 function delete_service_account {
   saemail=$1
   echo "Deleting Service Account: '$saemail'"
-  gcloud iam service-accounts describe $SA_EMAIL > /dev/null 2>&1
+  gcloud iam service-accounts describe $saemail > /dev/null 2>&1
   RETVAL=$?
   if (( ${RETVAL} != "0" )); then
     echo "$saemail does not exist."
   else
-  maybe_run gcloud -q iam service-accounts delete $saemail
+    maybe_run gcloud -q iam service-accounts delete $saemail
+  fi
+}
+
+function delete_cloud_function {
+  cf_name=$1
+  echo "Deleting Cloud Function: $cf_name"
+  gcloud functions describe $cf_name > /dev/null 2>&1
+  RETVAL=$?
+  if (( ${RETVAL} != "0" )); then
+    echo "$cf_name does not exist."
+  else
+    maybe_run gcloud -q functions delete $cf_name
+  fi
+}
+
+function delete_scheduler {
+  scheduler_name=$1
+  echo "Deleting Scheduler: $scheduler_name"
+  gcloud scheduler jobs describe $scheduler_name > /dev/null 2>&1
+  RETVAL=$?
+  if (( ${RETVAL} != "0" )); then
+    echo "$scheduler_name does not exist."
+  else
+    maybe_run gcloud -q scheduler jobs delete $scheduler_name
   fi
 }
 
@@ -309,7 +400,7 @@ fi
 
 # upload profit data
 if [ ${DEPLOY_PROFIT_DATA} -eq 1 ]; then
-  echo "Handling profit data"
+  echo "Provisioning profit data"
   # check if the profit data file is available
   if [ -f $CLIENT_MARGIN_DATA_FILE_WITH_PATH ]; then
     # check the storage account
@@ -331,62 +422,18 @@ fi
 
 # create cloud funtions
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
-  echo "Creating Cloud functions"
- # Create scheduled job
-  maybe_run gcloud beta scheduler jobs delete \
-    --location=us-central \
-    --project=${PROJECT} \
-    --quiet \
-    "delegator-scheduler" || echo "No job to delete" 
-
-  maybe_run gcloud beta scheduler jobs create pubsub \
-    "delegator" \
-    --location=us-central \
-    --schedule="0 6 * * *" \
-    --topic="conversion_upload_delegator" \
-    --message-body="RUN" \
-    --project=${PROJECT} || echo "scheduler failed!"
-
-  echo "Deploying Delegator Cloud Function"
+  echo "Provisioning delegators"
+  create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
   pushd converion_upload_delegator
-  maybe_run gcloud functions deploy "cloud_conversion_upload_delegator" \
-    --region=us-central1 \
-    --project=${PROJECT} \
-    --trigger-topic=conversion_upload_delegator \
-    --memory=2GB \
-    --timeout=540s \
-    --runtime python37 \
-    --entry-point=main 
+  create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
   popd
 fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
-  echo "Creating CM360 Cloud Function"
- # Create scheduled job
-  maybe_run gcloud beta scheduler jobs delete \
-    --location=us-central \
-    --project=${PROJECT} \
-    --quiet \
-    "cm360-scheduler" || echo "No job to delete"
-
-  maybe_run gcloud beta scheduler jobs create pubsub \
-    "cm360-scheduler" \
-    --location=us-central \
-    --schedule="0 6 * * *" \
-    --topic="conversion_upload_delegator" \
-    --message-body="RUN" \
-    --project=${PROJECT} || echo "scheduler failed!"
-
-  echo "Deploying CM360 Cloud Function"
+  echo "Provisioning CM360 CF"
+  create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME
   pushd SA360_cloud_converion_upload_node
-  maybe_run gcloud functions deploy "cm360_cloud_conversion_upload_node" \
-    --region=us-central1 \
-    --project=${PROJECT} \
-    --trigger-topic=cm360_conversion_upload \
-    --memory=256MB \
-    --timeout=540s \
-    --runtime python37 \
-    --entry-point=main
+  create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
   popd
 fi
 
@@ -394,10 +441,14 @@ if [ ${DELETE_SOLUTION} -eq 1 ]; then
   echo "ALERT!!!! - Deletes all the GCP components!"
   delete_service_account $SA_EMAIL
   delete_bq_ds $DS_SA360
-  delete_bq_ds $DS_SA360
+  delete_bq_ds $DS_GMC
   delete_bq_ds $DS_BUSINESS_DATA  
   delete_storage_account $STORAGE_LOGS
   delete_storage_account $STORAGE_PROFIT
+  delete_cloud_function $CF_DELEGATOR
+  delete_scheduler $SCHEDULER_DELGATOR
+  delete_cloud_function $CF_CM360
+  delete_scheduler $SCHEDULER_CM360
 fi
 
 echo 'Script ran successfully!'
