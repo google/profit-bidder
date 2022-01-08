@@ -23,6 +23,8 @@ Usage:
   install.sh [options]
 Options:
   --project         GCP Project Id
+Options with default values:  
+  --service-account Service Account name
   --dataset-sa360   Big Query dataset for SA360 to verify or create
   --dataset-gmc     Big Query dataset for Google Merchant Center to verify or create
   --dataset-profit  Big Query dataset for Business profit data to verify or create
@@ -39,8 +41,8 @@ Deployment directives:
   --deploy-delegator Create delegator cloud function
   --deploy-cm360-function Create cm360 cloud function
   --deploy-profit-data Upload and create client_margin_data_table
-  --delete-solution Alert!-Deletes GCP resources. Limited amount of clean up activities.
-
+Alert!-Deletes GCP resources. Limited amount of clean up activities.
+  --delete-solution 
 General switches:
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
@@ -59,7 +61,6 @@ function join { local IFS="$1"; shift; echo "$*"; }
 SOLUTION_PREFIX="pb_"
 
 SERVICE_ACCOUNT_NAME=$SOLUTION_PREFIX"profit-bidder"
-
 DS_SA360=$SOLUTION_PREFIX"sa360_data"
 DS_GMC=$SOLUTION_PREFIX"gmc_data"
 DS_BUSINESS_DATA=$SOLUTION_PREFIX"business_data"
@@ -90,6 +91,9 @@ while [[ ${1:-} == -* ]] ; do
   case $1 in
     --project*)
       IFS="=" read _cmd PROJECT <<< "$1" && [ -z ${PROJECT} ] && shift && PROJECT=$1
+      ;;
+    --service-account*)
+      IFS="=" read _cmd SERVICE_ACCOUNT_NAME <<< "$1" && [ -z ${SERVICE_ACCOUNT_NAME} ] && shift && SERVICE_ACCOUNT_NAME=$1
       ;;
     --dataset-sa360*)
       IFS="=" read _cmd DS_SA360 <<< "$1" && [ -z ${DS_SA360} ] && shift && DS_SA360=$1
