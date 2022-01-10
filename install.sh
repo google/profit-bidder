@@ -62,6 +62,15 @@ EOF
 
 }
 
+# Provisioning and deprovisioning Unit test
+# =========================================
+# mkdir -p $HOME/solutions/profit-bidder
+# cd $HOME/solutions/profit-bidder
+# git clone https://github.com/google/profit-bidder.git .
+# sh install.sh --deploy-all --project=<project_id>
+# sh install.sh --list-solution --project=<project_id>
+# #sh install.sh --delete-solution --project=<project_id>
+
 function profit_data_usage {
   cat << EOF
 CSV Format and sample values for the client_margin_data_table table:
