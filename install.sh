@@ -21,7 +21,7 @@ install.sh
 ==========
 Usage:
   install.sh [options]
-Options:
+Options - Mandatory:
   --project         GCP Project Id
 Options with default values:  
   --service-account Service Account name
@@ -46,17 +46,28 @@ Deployment directives:
   --deploy-storage   Create storage buckets
   --deploy-delegator Create delegator cloud function
   --deploy-cm360-function Create cm360 cloud function
-  --deploy-profit-data Upload and create client_margin_data_table
+  --deploy-profit-data Upload and create client_margin_data_table (*format mentioned below)
 General switches:
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
   --delete-solution Alert!-Deletes GCP resources. Useful for unit testing.
+  --list-solution   Lists all the GCP resources for the solution.
 
 Example:
 sh install.sh --dry-run --deploy-all --project=<project_id>
 sh install.sh --dry-run --deploy-profit-data  --project=<project_id> --dataset-profit=my_profit_ds --storage-profit=my_profit_sa --profit-file=my/path/file.csv
 sh install.sh --dry-run --deploy-all --project=<project_id> --dataset-sa360=my_sa360  --dataset-gmc=my_gmc --dataset-profit=my_profit --storage-logs=my_con_log  --storage-profit=my_profit_csv
 
+EOF
+
+}
+
+function profit_data_usage {
+  cat << EOF
+CSV Format and sample values for the client_margin_data_table table:
+Class_Name,Scored_Value
+test1,50
+test2,60.60
 EOF
 }
 
@@ -89,6 +100,7 @@ DEPLOY_DELEGATOR=0
 DEPLOY_STORAGE=0
 DEPLOY_PROFIT_DATA=0
 DELETE_SOLUTION=0
+LIST_SOLUTION=0
 
 PROJECT=
 USER=
@@ -169,6 +181,9 @@ while [[ ${1:-} == -* ]] ; do
     --delete-solution)
       DELETE_SOLUTION=1
       ;;  
+    --list-solution)
+      LIST_SOLUTION=1
+      ;;  
     --activate-apis)
       ACTIVATE_APIS=1
       ;;
@@ -213,15 +228,16 @@ fi
 
 if [ -z "${PROJECT}" ]; then
   usage
-  echo -e "\nYou must specify a project to proceed."
+  echo "\nYou must specify a project to proceed."
   exit
 fi
 
 function create_bq_ds {
   dataset=$1
   echo "Creating BQ dataset: '${dataset}'" 
+  bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1
   RETVAL=$?
-  if ! bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1; then
+  if (( ${RETVAL} != "0" )); then
     maybe_run bq --project_id=${PROJECT} mk --dataset ${dataset}
   else
     echo "Reusing ${dataset}."
@@ -281,8 +297,9 @@ function create_scheduler {
 function delete_bq_ds {
   dataset=$1
   echo "Deleting BQ dataset: '${dataset}'" 
+  bq --project_id=${PROJECT} show --dataset ${dataset}
   RETVAL=$?
-  if ! bq --project_id=${PROJECT} show --dataset ${dataset} > /dev/null 2>&1; then
+  if (( ${RETVAL} != "0" )); then
     echo "${dataset} does not exist."
   else
     maybe_run bq rm -r -f -d ${PROJECT}:${dataset}
@@ -336,6 +353,26 @@ function delete_scheduler {
   else
     maybe_run gcloud -q scheduler jobs delete $scheduler_name
   fi
+}
+
+function list_storage_account {
+  bucket=$1
+  maybe_run gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket}
+}
+
+function list_bq_ds {
+  dataset=$1
+  maybe_run bq --project_id=${PROJECT} show --dataset ${dataset}
+}
+
+function list_cloud_function {
+  cf_name=$1
+  maybe_run gcloud functions describe $cf_name
+}
+
+function list_scheduler {
+  scheduler_name=$1
+  maybe_run gcloud scheduler jobs describe $scheduler_name
 }
 
 USER=profit-bidder@${PROJECT}.iam.gserviceaccount.com
@@ -416,25 +453,26 @@ if [ ${DEPLOY_PROFIT_DATA} -eq 1 ]; then
     $DS_BUSINESS_DATA.$CLIENT_MARGIN_DATA_TABLE_NAME \
     gs://${PROJECT}-${bucket}/$CLIENT_MARGIN_DATA_FILE_NAME
   else
-    echo "$CLIENT_MARGIN_DATA_FILE doesn't exist!"
+    echo "$CLIENT_MARGIN_DATA_FILE_WITH_PATH doesn't exist!"
+    profit_data_usage
   fi
 fi
 
 # create cloud funtions
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Provisioning delegators"
-  create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
   pushd converion_upload_delegator
   create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
   popd
+  create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
 fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   echo "Provisioning CM360 CF"
-  create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME
   pushd SA360_cloud_converion_upload_node
   create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
   popd
+  create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME
 fi
 
 if [ ${DELETE_SOLUTION} -eq 1 ]; then
@@ -449,6 +487,19 @@ if [ ${DELETE_SOLUTION} -eq 1 ]; then
   delete_scheduler $SCHEDULER_DELGATOR
   delete_cloud_function $CF_CM360
   delete_scheduler $SCHEDULER_CM360
+fi
+
+if [ ${LIST_SOLUTION} -eq 1 ]; then
+  maybe_run gcloud iam service-accounts describe $SA_EMAIL
+  list_bq_ds $DS_SA360
+  list_bq_ds $DS_GMC
+  list_bq_ds $DS_BUSINESS_DATA  
+  list_storage_account $STORAGE_LOGS
+  list_storage_account $STORAGE_PROFIT
+  list_cloud_function $CF_DELEGATOR
+  list_cloud_function $CF_CM360
+  list_scheduler $SCHEDULER_DELGATOR
+  list_scheduler $SCHEDULER_CM360
 fi
 
 echo 'Script ran successfully!'
