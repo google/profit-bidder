@@ -38,20 +38,20 @@ Options with default values:
   --cf-cm360                Cloud Function name for the CM360 processing logic
   --scheduler_cm360         Scheduler name for the CM360 CF
 Deployment directives:
-  --activate-apis   Activate all missing but required Cloud APIs
+  --activate-apis     Activate all missing but required Cloud APIs
   --create-service-account
-                    Create the service account and client secrets
-  --deploy-all Deploy all services
-  --deploy-bigquery  Create BQ datasets
-  --deploy-storage   Create storage buckets
-  --deploy-delegator Create delegator cloud function
+                      Create the service account and client secrets
+  --deploy-all        Deploy all services
+  --deploy-bigquery   Create BQ datasets
+  --deploy-storage    Create storage buckets
+  --deploy-delegator  Create delegator cloud function
   --deploy-cm360-function Create cm360 cloud function
   --deploy-profit-data Upload and create client_margin_data_table (*format mentioned below)
 General switches:
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
-  --delete-solution Alert!-Deletes GCP resources. Useful for unit testing.
-  --list-solution   Lists all the GCP resources for the solution.
+  --delete-all      Alert!-Deletes GCP resources. Useful for unit testing.
+  --list-all        Lists all the GCP resources for the solution.
 
 Example:
 sh install.sh --dry-run --deploy-all --project=<project_id>
@@ -68,8 +68,8 @@ EOF
 # cd $HOME/solutions/profit-bidder
 # git clone https://github.com/google/profit-bidder.git .
 # sh install.sh --deploy-all --project=<project_id>
-# sh install.sh --list-solution --project=<project_id>
-# #sh install.sh --delete-solution --project=<project_id>
+# sh install.sh --list-all --project=<project_id>
+# #sh install.sh --delete-all --project=<project_id>
 
 function profit_data_usage {
   cat << EOF
@@ -187,10 +187,10 @@ while [[ ${1:-} == -* ]] ; do
     --deploy-profit-data)
       DEPLOY_PROFIT_DATA=1
       ;;  
-    --delete-solution)
+    --delete-all)
       DELETE_SOLUTION=1
       ;;  
-    --list-solution)
+    --list-all)
       LIST_SOLUTION=1
       ;;  
     --activate-apis)
@@ -384,6 +384,17 @@ function list_scheduler {
   maybe_run gcloud scheduler jobs describe $scheduler_name
 }
 
+function replace_placehoder {
+  echo "Replacing $1 with $2 in $3"
+  placeholder=$1
+  placeholder_value=$2
+  file_name=$3
+  maybe_run grep $1 $3
+  maybe_run sed -i "" "s|$1|$2|" $3
+  maybe_run grep $1 $3
+  maybe_run grep $2 $3
+}
+
 USER=profit-bidder@${PROJECT}.iam.gserviceaccount.com
 if [ ! -z ${ADMIN} ]; then
   _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
@@ -472,10 +483,7 @@ if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Provisioning delegators"
   pushd converion_upload_delegator
   #replace placeholder variable with project specific values
-  grep replace-with-your-project-id main.py
-  sed -i "" "s|replace-with-your-project-id|$PROJECT|" main.py
-  grep replace-with-your-project-id main.py
-  grep $PROJECT main.py
+  replace_placehoder "replace-with-your-project-id" $PROJECT "main.py"
   create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
   popd
   create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
@@ -483,7 +491,12 @@ fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   echo "Provisioning CM360 CF"
+  # check the storage account
+  create_storage_account $STORAGE_LOGS
   pushd SA360_cloud_converion_upload_node
+  #replace placeholder variable with project specific values
+  replace_placehoder "conversion_upload_log" $STORAGE_LOGS "main.py"
+  replace_placehoder "your-service-account@your-project-name.iam.gserviceaccount.com" $SA_EMAIL "main.py"
   create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
   popd
   create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME
