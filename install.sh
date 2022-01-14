@@ -471,6 +471,11 @@ fi
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Provisioning delegators"
   pushd converion_upload_delegator
+  #replace placeholder variable with project specific values
+  grep replace-with-your-project-id main.py
+  sed -i "" "s|replace-with-your-project-id|$PROJECT|" main.py
+  grep replace-with-your-project-id main.py
+  grep $PROJECT main.py
   create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
   popd
   create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
