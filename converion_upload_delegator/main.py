@@ -18,6 +18,7 @@ import base64
 import datetime
 import decimal
 import json
+import logging
 import os
 import pytz
 
@@ -31,7 +32,7 @@ from google.cloud import pubsub
 
 # Instantiates a Pub/Sub client
 publisher = pubsub.PublisherClient()
-PROJECT_ID = 'replace-with-your-project-id'
+PROJECT_ID = os.getenv('GCP_PROJECT')
 # Defaults to America/New_York, please update to 
 # your respective timezone if needed.
 PROJECT_TIMEZONE = 'America/New_York'
@@ -48,18 +49,14 @@ def time_now_str():
     return datetime.datetime.now(tz).strftime("%m-%d-%Y, %H:%M:%S")
 
 
-def get_data(table, cloud_client):
-  rows_iter = cloud_client.list_rows(table)
-  rows = list(rows_iter)
-  print('Downloaded {} rows from table {}'.format(len(rows), table))
-  return rows
-
-
 def get_dataset(table_name, cloud_client):
     datasets = cloud_client.list_datasets()
+    all_datasets = list(datasets)
+    count_datasets = len(all_datasets)
+    print(f'get_dataset found {count_datasets} datasets')
     found = False
     table_ref = None
-    for dataset in datasets:
+    for dataset in all_datasets:
         print(dataset)
         table = '{}.{}.{}'.format(cloud_client.project,
                                                dataset.dataset_id,
@@ -93,18 +90,7 @@ def publish(data, topic_name, config):
     # References an existing topic
     topic_path = publisher.topic_path(PROJECT_ID, topic_name)
 
-    conversion_data = []
-    for row in data:
-        result = {}
-        for key in row.keys():
-            value = row.get(key)
-            if type(value) == datetime.datetime or type(value) == datetime.date:
-                result[key] = value.strftime("%Y-%m-%d ")
-            elif type(value) == decimal.Decimal:
-                result[key] = float(value)
-            else:
-                result[key] = value
-        conversion_data.append(result)
+    conversion_data = data
 
     message = {'data': None}
     # setup message data appropriately
@@ -129,14 +115,92 @@ def publish(data, topic_name, config):
         print('Exception found: {}'.format(e))
 
 
-def partition_and_distribute(data_rows, topic, config):
-    current_row = 0
-    while current_row < len(data_rows):
-        segment = data_rows[current_row:min(current_row+1000, len(data_rows))]
-        print('Batch size: ', len(segment))
-        publish(segment, topic, config)
-        current_row += 1000
+REQUIRED_KEYS = [
+    'conversionId',
+    'conversionQuantity',
+    'conversionRevenue',
+    'conversionTimestamp',
+    'conversionVisitExternalClickId',
+]
+def get_data(table_ref_name, cloud_client, batch_size):
+    current_batch = []
+    table = cloud_client.get_table(table_ref_name)
+    print(f'Downloading {table.num_rows} rows from table {table_ref_name}')
+    skip_stats = {}
+    for row in cloud_client.list_rows(table_ref_name):
+        missing_keys = []
+        for key in REQUIRED_KEYS:
+            val = row.get(key)
+            if val is None:
+                missing_keys.append(key)
+                count = skip_stats.get(key, 0)
+                count += 1
+                skip_stats[key] = count
+        if len(missing_keys) > 0:
+            row_as_dict = dict(row.items())
+            logging.debug(f'Skipped row: missing values for keys {missing_keys} in row {row_as_dict}')
+            continue
+        result = {}
+        conversionTimestamp = row.get('conversionTimestamp')
+        # convert floating point seconds to microseconds since the epoch
+        result['conversionTimestampMicros'] = int(conversionTimestamp.timestamp() * 1_000_000)
+        for key in row.keys():
+            value = row.get(key)
+            if type(value) == datetime.datetime or type(value) == datetime.date:
+                result[key] = value.strftime("%y-%m-%d ")
+            elif type(value) == decimal.Decimal:
+                result[key] = float(value)
+            else:
+                result[key] = value
+        current_batch.append(result)
+        if len(current_batch) >= batch_size:
+            yield current_batch
+            current_batch = []
+    if len(current_batch) > 0:
+        yield current_batch
+    pretty_skip_stats = ', '.join([f'{val} row{pluralize(val)} missing key "{key}"' for key, val in skip_stats.items()])
+    logging.info(f'Processed {table.num_rows} from table {table_ref_name} skipped {pretty_skip_stats}')
 
+
+def pluralize(count):
+    if count > 1:
+        return 's'
+    return ''
+
+
+def partition_and_distribute(cloud_client, table_ref_name, topic, config):
+    batch_size = 1000
+    batch_size = 1
+    for batch in get_data(table_ref_name, cloud_client, batch_size):
+        print(f'Batch size: {len(batch)} batch: {batch}')
+        publish(batch, topic, config)
+        # DEBUG BREAK!
+        if batch_size == 1:
+            break
+
+
+def decode_json(payload):
+    '''
+    Example payload:
+    {
+      "table_name": "table",
+      "topic": "topic",
+      "cm360_config": {
+        "profile_id": "",
+        "floodlight_activity_id": "",
+        "floodlight_configuration_id": ""
+      }
+    }
+    '''
+    try:
+        json_payload = json.loads(payload)
+    except:
+        print(f'Unable to parse json payload: {payload}')
+        raise
+    table_name = json_payload['table_name'] if 'table_name' in json_payload else None
+    topic = json_payload['topic'] if 'topic' in json_payload else None
+    config = json_payload['cm360_config'] if 'cm360_config' in json_payload else None
+    return table_name, topic, config
 
 def main(event, context):
     print('[{}] - Start Conversion upload delegator'.format(time_now_str()))
@@ -148,24 +212,18 @@ def main(event, context):
     cloud_client = bigquery.Client()
 
     # decode pub/sub payload
-    payload = base64.b64decode(event.get('data')).decode('utf-8')
-    json_payload = json.loads(payload)
-    
-    print('Payload: ', json_payload)
-
-    table_name = json_payload['table_name'] if 'table_name' in json_payload else None
-    topic = json_payload['topic'] if 'topic' in json_payload else None
-    config = json_payload['cm360_config'] if 'cm360_config' in json_payload else None
+    payload = base64.b64decode(event.get('data', '')).decode('utf-8')
+    table_name, topic, config = decode_json(payload)
+    print(f'table: {table_name} topic: {topic} config: {config}')
 
     table = get_dataset(table_name, cloud_client)
     
-    if table:
+    if table is not None:
         table_ref_name = table.full_table_id.replace(':', '.')
         if table.modified.date() == todays_date or table.created.date() == todays_date:
             print('[{}] is up-to-date. Continuing with upload...'.format(table_ref_name))
-            data = get_data(table_ref_name, cloud_client)
             if topic:
-                partition_and_distribute(data, topic, config)
+                partition_and_distribute(cloud_client, table_ref_name, topic, config)
             else:
                 print('No target pub/sub topic name provided. Please update and retry....upload aborted!')
         else:

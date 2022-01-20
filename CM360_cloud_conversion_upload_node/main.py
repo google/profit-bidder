@@ -19,6 +19,7 @@ import datetime
 import google.auth
 import google.auth.impersonated_credentials
 import json
+import os
 import time
 import pytz
 
@@ -32,14 +33,14 @@ from google.cloud import bigquery
 from google.cloud import pubsub
 from google.cloud import storage
 
-IMPERSONATED_SVC_ACCOUNT = 'your-service-account@your-project-name.iam.gserviceaccount.com'
+IMPERSONATED_SVC_ACCOUNT = os.getenv('SA_EMAIL')
 
 API_SCOPES = ['https://www.googleapis.com/auth/dfareporting',
               'https://www.googleapis.com/auth/dfatrafficking',
               'https://www.googleapis.com/auth/ddmconversions',
               'https://www.googleapis.com/auth/devstorage.read_write']
 CM360_API_NAME = 'dfareporting'
-CM360_API_VERSION = 'v3.4'
+CM360_API_VERSION = 'v3.5'
 
 # Defaults to America/New_York, please update to 
 # your respective timezone if needed.
@@ -101,10 +102,12 @@ def upload_data(rows, profile_id, fl_configuration_id, fl_activity_id):
             # print('Conversion: ', conversion) # uncomment if you want to output each conversion
             all_conversions = all_conversions + conversion + ','
         all_conversions = all_conversions[:-1] + ']}'
-        request = service.conversions().batchinsert(profileId=profile_id, body=json.loads(all_conversions))
+        payload = json.loads(all_conversions)
+        print(f'CM360 request payload: {payload}')
+        request = service.conversions().batchinsert(profileId=profile_id, body=payload)
         print('[{}] - CM360 API Request: '.format(time_now_str()), request)
         response = request.execute()
-        print('[{}] - CM360 API Response: '.format(time_now_str()), request)
+        print('[{}] - CM360 API Response: '.format(time_now_str()), response)
         if not response['hasFailures']:
             print('Successfully inserted batch of 100.')
         else:
@@ -130,12 +133,12 @@ def main(event, context):
     payload = base64.b64decode(event.get('data')).decode('ascii')
     json_payload = json.loads(payload)
 
-    print('Payload: ', json_payload)
+    print(f'Payload: {json_payload}')
     # General required data
     conversion_data = json_payload['data']['conversions'] if 'conversions' in json_payload['data'] else None
     config = json_payload['data']['config'] if 'config' in json_payload['data'] else None
 
-    if conversion_data:
+    if conversion_data is not None:
         # CM specific data
         profile_id = config['profile_id'] if 'profile_id' in config else None
 

@@ -23,6 +23,11 @@ Usage:
   install.sh [options]
 Options - Mandatory:
   --project         GCP Project Id
+CM360 Deployment Options:
+  --cm360-table            BQ table to read conversions from
+  --cm360-profile-id       CM360 profile id
+  --cm360-fl-activity-id   CM360 floodlight activity id
+  --cm360-fl-config-id     CM360 floodlight configuration id
 Options with default values:  
   --service-account Service Account name
   --dataset-sa360   Big Query dataset for SA360 to verify or create
@@ -32,6 +37,7 @@ Options with default values:
   --storage-profit  Storage Account to upload the profit data
   --profit-file     Filename along with path containing the profit data
   --delegator-pubsub-topic  PubSub topic name for the Delegator processing
+  --cf-region               Google Cloud Region
   --cf-delegator            Cloud Function name for the Delegator processing logic
   --scheduler_delegator     Scheduler name for the Delegator CF
   --cm360-pubsub-topic      PubSub topic name for the CM360 processing
@@ -54,9 +60,45 @@ General switches:
   --list-all        Lists all the GCP resources for the solution.
 
 Example:
-sh install.sh --dry-run --deploy-all --project=<project_id>
-sh install.sh --dry-run --deploy-profit-data  --project=<project_id> --dataset-profit=my_profit_ds --storage-profit=my_profit_sa --profit-file=my/path/file.csv
-sh install.sh --dry-run --deploy-all --project=<project_id> --dataset-sa360=my_sa360  --dataset-gmc=my_gmc --dataset-profit=my_profit --storage-logs=my_con_log  --storage-profit=my_profit_csv
+sh install.sh --dry-run --deploy-all \
+  --project=<project_id> \
+  --cm360-table=my_tbl \
+  --cm360-profile-id=my_profile_id \
+  --cm360-fl-activity-id=my_activity_id \
+  --cm360-fl-config-id=my_config-id 
+
+sh install.sh --dry-run --deploy-profit-data \
+  --project=<project_id> \
+  --dataset-profit=my_profit_ds \
+  --storage-profit=my_profit_sa \
+  --profit-file=my/path/file.csv
+
+sh install.sh --dry-run --deploy-cm360-function \
+  --project=<project_id> \
+  --cm360-table=my_tbl \
+  --cm360-profile-id=my_profile_id \
+  --cm360-fl-activity-id=my_activity_id \
+  --cm360-fl-config-id=my_config-id 
+
+sh install.sh --dry-run --deploy-all \
+  --project=<project_id> \
+  --service-account=my_sa \
+  --dataset-sa360=my_sa360  \
+  --dataset-gmc=my_gmc \
+  --dataset-profit=my_profit \
+  --storage-logs=my_con_log  \
+  --storage-profit=my_profit_csv \
+  --cm360-table=my_tbl \
+  --cm360-profile-id=my_profile_id \
+  --cm360-fl-activity-id=my_activity_id \
+  --cm360-fl-config-id=my_config-id \
+  --delegator-pubsub-topic=my_delegator_topic \
+  --cf-region=us-central1 \
+  --cf-delegator=my_cf_delegator \
+  --scheduler_delegator=my_scheduler_delegator \
+  --cm360-pubsub-topic=my_cm360_topic \
+  --cf-cm360=my_cf_cm360 \
+  --scheduler_cm360=my_scheduler_cm360
 
 EOF
 
@@ -100,6 +142,13 @@ SCHEDULER_DELGATOR=$SOLUTION_PREFIX"delegator-scheduler"
 CF_CM360=$SOLUTION_PREFIX"cm360_cloud_conversion_upload_node"
 CM360_PUBSUB_TOPIC_NAME=$SOLUTION_PREFIX"cm360_conversion_upload"
 SCHEDULER_CM360=$SOLUTION_PREFIX"cm360-scheduler"
+CF_REGION="us-central1"
+SA_ROLES="roles/bigquery.dataViewer roles/pubsub.publisher roles/iam.serviceAccountTokenCreator"
+
+CM360_TABLE=""
+CM360_PROFILE_ID=""
+CM360_FL_ACTIVITY_ID=""
+CM360_FL_CONFIG_ID=""
 
 ACTIVATE_APIS=0
 CREATE_SERVICE_ACCOUNT=0
@@ -112,7 +161,6 @@ DELETE_SOLUTION=0
 LIST_SOLUTION=0
 
 PROJECT=
-USER=
 ADMIN=
 DRY_RUN=""
 
@@ -163,6 +211,9 @@ while [[ ${1:-} == -* ]] ; do
     --cm360-pubsub-topic*)
       IFS="=" read _cmd CM360_PUBSUB_TOPIC_NAME <<< "$1" && [ -z ${CM360_PUBSUB_TOPIC_NAME} ] && shift && CM360_PUBSUB_TOPIC_NAME=$1
       ;;
+    --cf-region*)
+      IFS="=" read _cmd CF_REGION <<< "$1" && [ -z ${CF_REGION} ] && shift && CF_REGION=$1
+      ;;
     --deploy-all)
       DEPLOY_BQ=1
       DEPLOY_STORAGE=1
@@ -187,6 +238,18 @@ while [[ ${1:-} == -* ]] ; do
     --deploy-profit-data)
       DEPLOY_PROFIT_DATA=1
       ;;  
+    --cm360-table*)
+      IFS="=" read _cmd CM360_TABLE <<< "$1" && [ -z ${CM360_TABLE} ] && shift && CM360_TABLE=$1
+      ;;
+    --cm360-profile-id*)
+      IFS="=" read _cmd CM360_PROFILE_ID <<< "$1" && [ -z ${CM360_PROFILE_ID} ] && shift && CM360_PROFILE_ID=$1
+      ;;
+    --cm360-fl-activity-id*)
+      IFS="=" read _cmd CM360_FL_ACTIVITY_ID <<< "$1" && [ -z ${CM360_FL_ACTIVITY_ID} ] && shift && CM360_FL_ACTIVITY_ID=$1
+      ;;
+    --cm360-fl-config-id*)
+      IFS="=" read _cmd CM360_FL_CONFIG_ID <<< "$1" && [ -z ${CM360_FL_CONFIG_ID} ] && shift && CM360_FL_CONFIG_ID=$1
+      ;;
     --delete-all)
       DELETE_SOLUTION=1
       ;;  
@@ -220,6 +283,29 @@ done
 SERVICE_ACCOUNT_NAME=${SERVICE_ACCOUNT_NAME/_/-}
 SA_EMAIL=${SERVICE_ACCOUNT_NAME}@${PROJECT}.iam.gserviceaccount.com
 
+function cm360_json {
+cat <<EOF
+{
+  "table_name": "${CM360_TABLE}",
+  "topic": "$CM360_PUBSUB_TOPIC_NAME",
+  "cm360_config": {
+    "profile_id": "${CM360_PROFILE_ID}",
+    "floodlight_activity_id": "${CM360_FL_ACTIVITY_ID}",
+    "floodlight_configuration_id": "${CM360_FL_CONFIG_ID}"
+  }
+}
+EOF
+}
+
+function get_roles {
+  gcloud projects get-iam-policy ${PROJECT} --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.members:${SA_EMAIL}"
+}
+
+function deploy_timestamp {
+  # 2021-11-01-08-21-49
+  date +%Y-%m-%d-%H-%M-%S
+}
+
 function maybe_run {
     if [ "${DRY_RUN:-}" = "echo" ]; then
         echo "$@"
@@ -240,6 +326,24 @@ if [ -z "${PROJECT}" ]; then
   echo "\nYou must specify a project to proceed."
   exit
 fi
+
+function create_service_account {
+  echo "Creating service account $SA_EMAIL"
+  gcloud iam service-accounts describe $SA_EMAIL > /dev/null 2>&1
+  RETVAL=$?
+  if (( ${RETVAL} != "0" )); then
+    maybe_run gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description 'Profit Bidder Service Account' --project ${PROJECT}
+  fi
+  for role in ${SA_ROLES}; do
+    echo -n "Adding ${SERVICE_ACCOUNT_NAME} to ${role} "
+    if get_roles | grep $role &> /dev/null; then
+      echo "already added."
+    else
+      maybe_run gcloud projects add-iam-policy-binding ${PROJECT} --member="serviceAccount:${SA_EMAIL}" --role="${role}"
+      echo "added."
+    fi
+  done   
+}
 
 function create_bq_ds {
   dataset=$1
@@ -274,13 +378,16 @@ function create_cloud_function {
   RETVAL=$?
   if (( ${RETVAL} != "0" )); then
     maybe_run gcloud functions deploy "$cf_name" \
-      --region=us-central1 \
-      --project=${PROJECT} \
-      --trigger-topic=$trigger_topic \
-      --memory=$2 \
-      --timeout=540s \
-      --runtime python37 \
-      --entry-point=main 
+    --region=${CF_REGION} \
+    --project=${PROJECT} \
+    --trigger-topic=$trigger_topic \
+    --memory=$2 \
+    --timeout=540s \
+    --runtime python37 \
+    --update-env-vars="SA_EMAIL=${SA_EMAIL}" \
+    --service-account=${SA_EMAIL} \
+    --update-labels="deploy_timestamp=$(deploy_timestamp)" \
+    --entry-point=main 
   else
     echo "Reusing ${cf_name}."
   fi
@@ -289,15 +396,25 @@ function create_cloud_function {
 function create_scheduler {
   scheduler_name=$1
   topic=$2
+  message_body=$3
   echo "Creating Scheduler: $scheduler_name"
   gcloud scheduler jobs describe $scheduler_name > /dev/null 2>&1
   RETVAL=$?
   if (( ${RETVAL} != "0" )); then
-    maybe_run gcloud beta scheduler jobs create pubsub \
-      "$scheduler_name" \
-      --schedule="0 6 * * *" \
-      --topic="$topic" \
-      --message-body="RUN" 
+    # maybe_run gcloud scheduler jobs create pubsub \
+    #   "$scheduler_name" \
+    #   --schedule="'0 6 * * *'" \
+    #   --topic="$topic" \
+    #   --message-body=\'$3\'
+    if [ "${DRY_RUN:-}" = "echo" ]; then
+        echo gcloud scheduler jobs create pubsub $scheduler_name --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
+    else
+        if [ "$VERBOSE" = "true" ]; then
+            echo $scheduler_cmd
+        fi
+        gcloud scheduler jobs create pubsub $scheduler_name --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
+    fi
+    
   else
     echo "Reusing ${scheduler_name}."
   fi
@@ -384,18 +501,6 @@ function list_scheduler {
   maybe_run gcloud scheduler jobs describe $scheduler_name
 }
 
-function replace_placehoder {
-  echo "Replacing $1 with $2 in $3"
-  placeholder=$1
-  placeholder_value=$2
-  file_name=$3
-  maybe_run grep $1 $3
-  maybe_run sed -i "" "s|$1|$2|" $3
-  maybe_run grep $1 $3
-  maybe_run grep $2 $3
-}
-
-USER=profit-bidder@${PROJECT}.iam.gserviceaccount.com
 if [ ! -z ${ADMIN} ]; then
   _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
 fi
@@ -429,14 +534,8 @@ fi
 
 # create service account
 if [ ${CREATE_SERVICE_ACCOUNT} -eq 1 ]; then
-  echo "Creating service account $SA_EMAIL"
-  gcloud iam service-accounts describe $SA_EMAIL > /dev/null 2>&1
-  RETVAL=$?
-  if (( ${RETVAL} != "0" )); then
-    maybe_run gcloud iam service-accounts create ${SERVICE_ACCOUNT_NAME} --description 'Profit Bidder Service Account' --project ${PROJECT}
-  fi
+  create_service_account
 fi
-
 
 # create cloud storage bucket
 if [ ${DEPLOY_STORAGE} -eq 1 ]; then
@@ -481,9 +580,9 @@ fi
 # create cloud funtions
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Provisioning delegators"
+  # check for the service account
+  create_service_account
   pushd converion_upload_delegator
-  #replace placeholder variable with project specific values
-  replace_placehoder "replace-with-your-project-id" $PROJECT "main.py"
   create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
   popd
   create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
@@ -491,15 +590,27 @@ fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   echo "Provisioning CM360 CF"
-  # check the storage account
-  create_storage_account $STORAGE_LOGS
-  pushd SA360_cloud_converion_upload_node
-  #replace placeholder variable with project specific values
-  replace_placehoder "conversion_upload_log" $STORAGE_LOGS "main.py"
-  replace_placehoder "your-service-account@your-project-name.iam.gserviceaccount.com" $SA_EMAIL "main.py"
-  create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
-  popd
-  create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME
+  if [ -z "${CM360_TABLE}" ] || [ -z "${CM360_PROFILE_ID}" ] || [ -z "${CM360_FL_ACTIVITY_ID}" ] || [ -z "${CM360_FL_CONFIG_ID}" ]; then
+    usage
+    echo "\nYou must specify --cm360-table, --cm360-profile-id, --cm360-fl-activity-id,--cm360-fl-config-id to 'deploy-cm360-function'."
+  else
+    # check for the service account
+    create_service_account
+    # check the storage account
+    create_storage_account $STORAGE_LOGS
+    pushd CM360_cloud_conversion_upload_node
+    create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
+    popd
+    if [ "$VERBOSE" = "true" ]; then
+      echo
+      echo
+      echo "Delegator payload JSON:"
+      cm360_json
+      echo
+      echo
+    fi  
+    create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME "$(cm360_json)"
+  fi  
 fi
 
 if [ ${DELETE_SOLUTION} -eq 1 ]; then
@@ -530,7 +641,3 @@ if [ ${LIST_SOLUTION} -eq 1 ]; then
 fi
 
 echo 'Script ran successfully!'
-# NOTES:
-# More automation may be needed?
-# * creation of pubsub topiocs
-# If gcloud scheduler fails, the user should be instructed to setup the scheduler in the cloud console
