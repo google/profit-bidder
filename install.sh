@@ -403,16 +403,17 @@ function create_scheduler {
   if (( ${RETVAL} != "0" )); then
     # maybe_run gcloud scheduler jobs create pubsub \
     #   "$scheduler_name" \
+    #   ----location=$CF_REGION \
     #   --schedule="'0 6 * * *'" \
     #   --topic="$topic" \
     #   --message-body=\'$3\'
     if [ "${DRY_RUN:-}" = "echo" ]; then
-        echo gcloud scheduler jobs create pubsub $scheduler_name --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
+        echo gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
     else
         if [ "$VERBOSE" = "true" ]; then
             echo $scheduler_cmd
         fi
-        gcloud scheduler jobs create pubsub $scheduler_name --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
+        gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
     fi
     
   else
@@ -477,7 +478,7 @@ function delete_scheduler {
   if (( ${RETVAL} != "0" )); then
     echo "$scheduler_name does not exist."
   else
-    maybe_run gcloud -q scheduler jobs delete $scheduler_name
+    maybe_run gcloud -q scheduler jobs delete $scheduler_name --location=$CF_REGION
   fi
 }
 
@@ -493,12 +494,12 @@ function list_bq_ds {
 
 function list_cloud_function {
   cf_name=$1
-  maybe_run gcloud functions describe $cf_name
+  maybe_run gcloud functions describe $cf_name --region=$CF_REGION 
 }
 
 function list_scheduler {
   scheduler_name=$1
-  maybe_run gcloud scheduler jobs describe $scheduler_name
+  maybe_run gcloud scheduler jobs describe $scheduler_name --location=$CF_REGION
 }
 
 if [ ! -z ${ADMIN} ]; then
@@ -614,7 +615,7 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
 fi
 
 if [ ${DELETE_SOLUTION} -eq 1 ]; then
-  echo "ALERT!!!! - Deletes all the GCP components!"
+  echo "ALERT!!!! - Deletes all the GCP Services created for the solution!"
   delete_service_account $SA_EMAIL
   delete_bq_ds $DS_SA360
   delete_bq_ds $DS_GMC
