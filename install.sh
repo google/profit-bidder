@@ -564,7 +564,7 @@ if [ ${DEPLOY_PROFIT_DATA} -eq 1 ]; then
     # check the bq dataset
     create_bq_ds $DS_BUSINESS_DATA
     # upload the data file into storage bucket
-    maybe_run gsutil cp $CLIENT_MARGIN_DATA_FILE_WITH_PATH gs://${PROJECT}-${bucket}
+    maybe_run gsutil cp $CLIENT_MARGIN_DATA_FILE_WITH_PATH gs://${PROJECT}-${STORAGE_PROFIT}
     # load the profit data
     maybe_run bq load \
     --autodetect \
