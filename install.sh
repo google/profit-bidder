@@ -82,7 +82,7 @@ sh install.sh --dry-run --deploy-cm360-function \
 
 sh install.sh --dry-run --deploy-all \
   --project=<project_id> \
-  --service-account=my_sa \
+  --service-account=my_profitbid_sa \
   --dataset-sa360=my_sa360  \
   --dataset-gmc=my_gmc \
   --dataset-profit=my_profit \
@@ -280,7 +280,7 @@ while [[ ${1:-} == -* ]] ; do
 done
 
 # comply the name and formulate the sa email account
-SERVICE_ACCOUNT_NAME=${SERVICE_ACCOUNT_NAME/_/-}
+SERVICE_ACCOUNT_NAME=${SERVICE_ACCOUNT_NAME//_/-}
 SA_EMAIL=${SERVICE_ACCOUNT_NAME}@${PROJECT}.iam.gserviceaccount.com
 
 function cm360_json {
