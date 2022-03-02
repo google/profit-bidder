@@ -35,8 +35,7 @@ publisher = pubsub.PublisherClient()
 PROJECT_ID = os.getenv('GCP_PROJECT')
 # Defaults to America/New_York, please update to 
 # your respective timezone if needed.
-PROJECT_TIMEZONE = 'America/New_York'
-
+PROJECT_TIMEZONE = os.getenv('TIMEZONE')
 
 def today_date():
     tz = pytz.timezone(PROJECT_TIMEZONE)

@@ -1,0 +1,291 @@
+[
+    {
+      "description": "Engine account name.",
+      "mode": "NULLABLE",
+      "name": "account",
+      "type": "STRING"
+    },
+    {
+      "description": "DS engine account ID.",
+      "mode": "NULLABLE",
+      "name": "accountId",
+      "type": "STRING"
+    },
+    {
+      "description": "Engine account type: Google AdWords, Bing Ads, Yahoo Japan Listing Ads, Yahoo Search Marketing, Yahoo Gemini, Baidu, or Comparison Shopping.",
+      "mode": "NULLABLE",
+      "name": "accountType",
+      "type": "STRING"
+    },
+    {
+      "description": "DS ad group ID.",
+      "mode": "NULLABLE",
+      "name": "adGroupId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS ad ID.",
+      "mode": "NULLABLE",
+      "name": "adId",
+      "type": "STRING"
+    },
+    {
+      "description": "Advertiser name.",
+      "mode": "NULLABLE",
+      "name": "advertiser",
+      "type": "STRING"
+    },
+    {
+      "description": "For offline conversions, this is an ID provided by advertisers. If an advertiser doesn't specify such an ID, DoubleClick Search generates one. For online conversions, this is equal to the conversionId column or the floodlightOrderId column depending on the advertiser's Floodlight instructions.",
+      "mode": "NULLABLE",
+      "name": "advertiserConversionId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS advertiser ID.",
+      "mode": "NULLABLE",
+      "name": "advertiserId",
+      "type": "STRING"
+    },
+    {
+      "description": "Agency name.",
+      "mode": "NULLABLE",
+      "name": "agency",
+      "type": "STRING"
+    },
+    {
+      "description": "DS agency ID.",
+      "mode": "NULLABLE",
+      "name": "agencyId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS campaign ID.",
+      "mode": "NULLABLE",
+      "name": "campaignId",
+      "type": "STRING"
+    },
+    {
+      "description": "What the conversion is attributed to: Visit or Keyword+Ad.",
+      "mode": "NULLABLE",
+      "name": "conversionAttributionType",
+      "type": "STRING"
+    },
+    {
+      "description": "The date, in the DFA network time zone, when the conversion occurred. This date is used for conversion metric aggregation. For example, when DS aggregates actions for May 1, it counts all action conversions whose conversionDate is May 1.",
+      "mode": "NULLABLE",
+      "name": "conversionDate",
+      "type": "DATE"
+    },
+    {
+      "description": "ID that DoubleClick Search generates for each conversion.",
+      "mode": "NULLABLE",
+      "name": "conversionId",
+      "type": "STRING"
+    },
+    {
+      "description": "The UTC timestamp of the conversion's most recent modification.",
+      "mode": "NULLABLE",
+      "name": "conversionLastModifiedTimestamp",
+      "type": "TIMESTAMP"
+    },
+    {
+      "description": "The quantity of items recorded by the conversion, as determined by the qtyparameter. The advertiser is responsible for dynamically populating the parameter (such as number of items sold in the conversion), otherwise it defaults to 1.",
+      "mode": "NULLABLE",
+      "name": "conversionQuantity",
+      "type": "FLOAT"
+    },
+    {
+      "description": "The total dollar amount from the conversion.",
+      "mode": "NULLABLE",
+      "name": "conversionRevenue",
+      "type": "FLOAT"
+    },
+    {
+      "description": "The search term that led to the conversion.",
+      "mode": "NULLABLE",
+      "name": "conversionSearchTerm",
+      "type": "STRING"
+    },
+    {
+      "description": "The UTC timestamp when the conversion occurred.",
+      "mode": "NULLABLE",
+      "name": "conversionTimestamp",
+      "type": "TIMESTAMP"
+    },
+    {
+      "description": "The type of the conversion: Action or Transaction.",
+      "mode": "NULLABLE",
+      "name": "conversionType",
+      "type": "STRING"
+    },
+    {
+      "description": "A unique string, for the visit that the conversion is attributed to, that is passed to the landing page as the gclid URL parameter. Only enabled for advertisers with conversion API integration or Google Analytics integration.",
+      "mode": "NULLABLE",
+      "name": "conversionVisitExternalClickId",
+      "type": "STRING"
+    },
+    {
+      "description": "The DS visit ID that the conversion is attributed to.",
+      "mode": "NULLABLE",
+      "name": "conversionVisitId",
+      "type": "STRING"
+    },
+    {
+      "description": "The UTC timestamp of the visit that the conversion is attributed to.",
+      "mode": "NULLABLE",
+      "name": "conversionVisitTimestamp",
+      "type": "TIMESTAMP"
+    },
+    {
+      "description": "The device segment that the conversion is attributed to: Desktop, Mobile, Tablet, or Other.",
+      "mode": "NULLABLE",
+      "name": "deviceSegment",
+      "type": "STRING"
+    },
+    {
+      "description": "The ID of the feed table associated with this conversion.",
+      "mode": "NULLABLE",
+      "name": "feedId",
+      "type": "STRING"
+    },
+    {
+      "description": "The ID of the feed item row associated with this conversion.",
+      "mode": "NULLABLE",
+      "name": "feedItemId",
+      "type": "STRING"
+    },
+    {
+      "description": "The type of feed associated with this conversion.",
+      "mode": "NULLABLE",
+      "name": "feedType",
+      "type": "STRING"
+    },
+    {
+      "description": "Floodlight activity name.",
+      "mode": "NULLABLE",
+      "name": "floodlightActivity",
+      "type": "STRING"
+    },
+    {
+      "description": "DS Floodlight activity ID.",
+      "mode": "NULLABLE",
+      "name": "floodlightActivityId",
+      "type": "STRING"
+    },
+    {
+      "description": "Floodlight activity tag.",
+      "mode": "NULLABLE",
+      "name": "floodlightActivityTag",
+      "type": "STRING"
+    },
+    {
+      "description": "The Floodlight request string of the conversion.",
+      "mode": "NULLABLE",
+      "name": "floodlightEventRequestString",
+      "type": "STRING"
+    },
+    {
+      "description": "Floodlight group name.",
+      "mode": "NULLABLE",
+      "name": "floodlightGroup",
+      "type": "STRING"
+    },
+    {
+      "description": "The type of conversions generated by Floodlight activities in this group: Action or Transaction.",
+      "mode": "NULLABLE",
+      "name": "floodlightGroupConversionType",
+      "type": "STRING"
+    },
+    {
+      "description": "DS Floodlight group ID.",
+      "mode": "NULLABLE",
+      "name": "floodlightGroupId",
+      "type": "STRING"
+    },
+    {
+      "description": "Floodlight group tag.",
+      "mode": "NULLABLE",
+      "name": "floodlightGroupTag",
+      "type": "STRING"
+    },
+    {
+      "description": "The Floodlight order ID provided by the advertiser for the conversion.",
+      "mode": "NULLABLE",
+      "name": "floodlightOrderId",
+      "type": "STRING"
+    },
+    {
+      "description": "The original, unchanged revenue associated with the Floodlight event, before Floodlight currency instruction modifications.",
+      "mode": "NULLABLE",
+      "name": "floodlightOriginalRevenue",
+      "type": "FLOAT"
+    },
+    {
+      "description": "The Floodlight referrer website of the conversion.",
+      "mode": "NULLABLE",
+      "name": "floodlightReferrer",
+      "type": "STRING"
+    },
+    {
+      "description": "The DS inventory account ID containing the product associated with the conversion. DS generates this ID when you link an inventory account in DS.",
+      "mode": "NULLABLE",
+      "name": "inventoryAccountId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS keyword ID.",
+      "mode": "NULLABLE",
+      "name": "keywordId",
+      "type": "STRING"
+    },
+    {
+      "description": "The sales channel of the product associated with the conversion: Online or Local.",
+      "mode": "NULLABLE",
+      "name": "productChannel",
+      "type": "STRING"
+    },
+    {
+      "description": "The country (ISO 3166 format) registered for the inventory feed that contains the product associated with this conversion.",
+      "mode": "NULLABLE",
+      "name": "productCountry",
+      "type": "STRING"
+    },
+    {
+      "description": "The product group ID associated with this conversion. Only conversions from shopping campaigns have product group IDs. Product group IDs should not be used for joining.",
+      "mode": "NULLABLE",
+      "name": "productGroupId",
+      "type": "STRING"
+    },
+    {
+      "description": "The ID of the product associated with this conversion.",
+      "mode": "NULLABLE",
+      "name": "productId",
+      "type": "STRING"
+    },
+    {
+      "description": "The language (ISO 639-1) of the product associated this conversion.",
+      "mode": "NULLABLE",
+      "name": "productLanguage",
+      "type": "STRING"
+    },
+    {
+      "description": "The store in the Local Inventory Ad associated with the conversion. This should match the store IDs used in your local products feed.",
+      "mode": "NULLABLE",
+      "name": "productStoreId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS product target ID.",
+      "mode": "NULLABLE",
+      "name": "productTargetId",
+      "type": "STRING"
+    },
+    {
+      "description": "The status of the conversion: Active or Removed.",
+      "mode": "NULLABLE",
+      "name": "status",
+      "type": "STRING"
+    }
+  ]
+  
