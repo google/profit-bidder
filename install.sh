@@ -479,7 +479,7 @@ function create_bq_table {
   if [[ "$sql_result" == *"1"* ]]; then
     echo "Reusing ${dataset}.${table_name}."
   else
-    maybe_run bq mk -t --schema ${schema_name} --time_partitioning_type DAY ${dataset}.${table_name}
+    maybe_run bq --project_id=${PROJECT} mk -t --schema ${schema_name} --time_partitioning_type DAY ${dataset}.${table_name}
   fi  
 }
 
@@ -489,22 +489,43 @@ function create_sql_transform_file {
     rm -rf profit_gen_query.sql
   fi
   maybe_run cp profit_gen_query_template.sql profit_gen_query.sql 
-  maybe_run sed -i "" "s|<project_id>|$SQL_TRANSFORM_PROJECT_ID|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<sa360_dataset_name>|$SQL_TRANSFORM_SA360_DATASET_NAME|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<advertiser_id>|$SQL_TRANSFORM_ADVERTISER_ID|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<floodlight_name>|$SQL_TRANSFORM_FLOODLIGHT_NAME|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<account_type>|$SQL_TRANSFORM_ACCOUNT_TYPE|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<gmc_dataset_name>|$SQL_TRANSFORM_GMC_DATASET_NAME|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<gmc_account_id>|$SQL_TRANSFORM_GMC_ACCOUNT_ID|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<business_dataset_name>|$SQL_TRANSFORM_BUSINESS_DATASET_NAME|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<client_margin_data_table>|$SQL_TRANSFORM_CLIENT_MARGIN_DATA_TABLE|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<client_profit_data_sku_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<client_profit_data_profit_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL|" profit_gen_query.sql
-  maybe_run sed -i "" "s|<target_floodlight_name>|$SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME|" profit_gen_query.sql
-  if [ ${DEPLOY_TEST_MODULE} -ne 1 ]; then
-    maybe_run sed -i "" "s|--<test>||" profit_gen_query.sql
-  fi
+  os_type=$(uname -a)
+  if [[ "$os_type" == *"Linux"* ]]; then
+    maybe_run sed -i "s|<project_id>|$SQL_TRANSFORM_PROJECT_ID|" profit_gen_query.sql
+    maybe_run sed -i "s|<sa360_dataset_name>|$SQL_TRANSFORM_SA360_DATASET_NAME|" profit_gen_query.sql
+    maybe_run sed -i "s|<advertiser_id>|$SQL_TRANSFORM_ADVERTISER_ID|" profit_gen_query.sql
+    maybe_run sed -i "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_query.sql
+    maybe_run sed -i "s|<floodlight_name>|$SQL_TRANSFORM_FLOODLIGHT_NAME|" profit_gen_query.sql
+    maybe_run sed -i "s|<account_type>|$SQL_TRANSFORM_ACCOUNT_TYPE|" profit_gen_query.sql
+    maybe_run sed -i "s|<gmc_dataset_name>|$SQL_TRANSFORM_GMC_DATASET_NAME|" profit_gen_query.sql
+    maybe_run sed -i "s|<gmc_account_id>|$SQL_TRANSFORM_GMC_ACCOUNT_ID|" profit_gen_query.sql
+    maybe_run sed -i "s|<business_dataset_name>|$SQL_TRANSFORM_BUSINESS_DATASET_NAME|" profit_gen_query.sql
+    maybe_run sed -i "s|<client_margin_data_table>|$SQL_TRANSFORM_CLIENT_MARGIN_DATA_TABLE|" profit_gen_query.sql
+    maybe_run sed -i "s|<client_profit_data_sku_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL|" profit_gen_query.sql
+    maybe_run sed -i "s|<client_profit_data_profit_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL|" profit_gen_query.sql
+    maybe_run sed -i "s|<target_floodlight_name>|$SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME|" profit_gen_query.sql
+    if [ ${DEPLOY_TEST_MODULE} -ne 1 ]; then
+        maybe_run sed -i "s|--<test>||" profit_gen_query.sql
+    fi
+  else
+    # below works in the shell of Mac
+    maybe_run sed -i "" "s|<project_id>|$SQL_TRANSFORM_PROJECT_ID|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<sa360_dataset_name>|$SQL_TRANSFORM_SA360_DATASET_NAME|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<advertiser_id>|$SQL_TRANSFORM_ADVERTISER_ID|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<floodlight_name>|$SQL_TRANSFORM_FLOODLIGHT_NAME|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<account_type>|$SQL_TRANSFORM_ACCOUNT_TYPE|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<gmc_dataset_name>|$SQL_TRANSFORM_GMC_DATASET_NAME|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<gmc_account_id>|$SQL_TRANSFORM_GMC_ACCOUNT_ID|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<business_dataset_name>|$SQL_TRANSFORM_BUSINESS_DATASET_NAME|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<client_margin_data_table>|$SQL_TRANSFORM_CLIENT_MARGIN_DATA_TABLE|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<client_profit_data_sku_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<client_profit_data_profit_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<target_floodlight_name>|$SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME|" profit_gen_query.sql
+    if [ ${DEPLOY_TEST_MODULE} -ne 1 ]; then
+      maybe_run sed -i "" "s|--<test>||" profit_gen_query.sql
+    fi
+  fi  
 }
 
 function create_sql_schedule_query {
@@ -527,14 +548,14 @@ function load_bq_table {
     delete_bq_table $dataset $table_name
   fi  
   if [[ "$schema_name" == *"autodetect"* ]]; then
-    maybe_run bq load \
+    maybe_run bq --project_id=${PROJECT} load \
     --autodetect \
     --source_format=CSV \
     $dataset.$table_name \
     $data_file 
   else
     create_bq_table $dataset $table_name $schema_name
-    maybe_run bq load \
+    maybe_run bq --project_id=${PROJECT} load \
       --source_format=CSV \
       --time_partitioning_type=DAY \
       --skip_leading_rows=1 \
