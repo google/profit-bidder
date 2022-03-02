@@ -762,7 +762,7 @@ if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   pushd converion_upload_delegator
   create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
   popd
-  create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME
+  create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME "$(cm360_json)"
 fi
 
 if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
@@ -786,7 +786,7 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
       echo
       echo
     fi  
-    create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME "$(cm360_json)"
+    # create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME "$(cm360_json)"
   fi  
 fi
 
