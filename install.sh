@@ -786,7 +786,6 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
       echo
       echo
     fi  
-    # create_scheduler $SCHEDULER_CM360 $CM360_PUBSUB_TOPIC_NAME "$(cm360_json)"
   fi  
 fi
 
