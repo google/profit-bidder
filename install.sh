@@ -24,7 +24,7 @@ Usage:
 Options - Mandatory:
   --project         GCP Project Id
 CM360 Deployment Options:
-  --cm360-table            BQ table to read conversions from
+  --cm360-table            BQ table contains the transformed data
   --cm360-profile-id       CM360 profile id
   --cm360-fl-activity-id   CM360 floodlight activity id
   --cm360-fl-config-id     CM360 floodlight configuration id
@@ -53,6 +53,11 @@ Deployment directives:
   --deploy-delegator  Create delegator cloud function
   --deploy-cm360-function Create cm360 cloud function
   --deploy-profit-data Upload and create client_margin_data_table (*format mentioned below)
+  --deploy-sql-transform Creates a BQ job scheduler 
+Test the solution with test data and code:
+  --deploy-test-module Creates test data and deploys code for testing
+  --delete-test-module Deletes test data and deploys code for testing
+  --list-test-module Lists test data and deploys code for testing
 General switches:
   --dry-run         Don't do anything, just print the commands you would otherwise run. Useful
                     for testing.
@@ -112,13 +117,20 @@ EOF
 # sh install.sh --deploy-all --project=<project_id>
 # sh install.sh --list-all --project=<project_id>
 # #sh install.sh --delete-all --project=<project_id>
+# 
+# To test the solution first deploy the solution and then
+# deploy the test module.
+# sh install.sh --deploy-test-module --project=<project_id>
+# sh install.sh --list-test-module --project=<project_id>
+# # sh install.sh --delete-test-module --project=<project_id>
 
 function profit_data_usage {
   cat << EOF
 CSV Format and sample values for the client_margin_data_table table:
-Class_Name,Scored_Value
-test1,50
-test2,60.60
+sku,profit
+GGOEAAAB081014,0.19
+GGOEAAEB031617,0.59
+GGOEAAEJ030917,0.59
 EOF
 }
 
@@ -145,10 +157,10 @@ SCHEDULER_CM360=$SOLUTION_PREFIX"cm360-scheduler"
 CF_REGION="us-central1"
 SA_ROLES="roles/bigquery.dataViewer roles/pubsub.publisher roles/iam.serviceAccountTokenCreator"
 
-CM360_TABLE=""
-CM360_PROFILE_ID=""
-CM360_FL_ACTIVITY_ID=""
-CM360_FL_CONFIG_ID=""
+CM360_TABLE="my_transformed_data"
+CM360_PROFILE_ID="my_cm_profileid"
+CM360_FL_ACTIVITY_ID="my_fl_activity_id"
+CM360_FL_CONFIG_ID="my_fl_config_id"
 
 ACTIVATE_APIS=0
 CREATE_SERVICE_ACCOUNT=0
@@ -157,6 +169,10 @@ DEPLOY_CM360_FUNCTION=0
 DEPLOY_DELEGATOR=0
 DEPLOY_STORAGE=0
 DEPLOY_PROFIT_DATA=0
+DEPLOY_SQL_TRANSFORM=0
+DEPLOY_TEST_MODULE=0
+DELETE_TEST_MODULE=0
+LIST_TEST_MODULE=0
 DELETE_SOLUTION=0
 LIST_SOLUTION=0
 
@@ -222,6 +238,7 @@ while [[ ${1:-} == -* ]] ; do
       DEPLOY_PROFIT_DATA=1      
       ACTIVATE_APIS=1
       CREATE_SERVICE_ACCOUNT=1
+      DEPLOY_SQL_TRANSFORM=1
       ;;
     --deploy-bigquery)
       DEPLOY_BQ=1
@@ -238,6 +255,18 @@ while [[ ${1:-} == -* ]] ; do
     --deploy-profit-data)
       DEPLOY_PROFIT_DATA=1
       ;;  
+    --deploy-sql-transform)
+      DEPLOY_SQL_TRANSFORM=1
+      ;;
+    --deploy-test-module)
+      DEPLOY_TEST_MODULE=1
+      ;;
+    --delete-test-module)
+      DELETE_TEST_MODULE=1
+      ;;
+    --list-test-module)
+      LIST_TEST_MODULE=1
+      ;;
     --cm360-table*)
       IFS="=" read _cmd CM360_TABLE <<< "$1" && [ -z ${CM360_TABLE} ] && shift && CM360_TABLE=$1
       ;;
@@ -278,6 +307,26 @@ while [[ ${1:-} == -* ]] ; do
   esac
   shift
 done
+
+SQL_TRANSFORM_PROJECT_ID=$PROJECT
+SQL_TRANSFORM_SA360_DATASET_NAME=$DS_SA360
+SQL_TRANSFORM_ADVERTISER_ID="43939335402485897" #synthensized id to test.
+SQL_TRANSFORM_TIMEZONE="America/New_York"
+SQL_TRANSFORM_FLOODLIGHT_NAME="My Sample Floodlight Activity"
+SQL_TRANSFORM_ACCOUNT_TYPE="Other engines"
+SQL_TRANSFORM_GMC_DATASET_NAME=$DS_GMC
+SQL_TRANSFORM_GMC_ACCOUNT_ID="mygmc_account_id"
+SQL_TRANSFORM_BUSINESS_DATASET_NAME=$DS_BUSINESS_DATA
+SQL_TRANSFORM_CLIENT_MARGIN_DATA_TABLE=$CLIENT_MARGIN_DATA_TABLE_NAME
+SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL="sku"
+SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL="profit"
+SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME="My Sample Floodlight Activity"
+
+CAMPAIGN_TABLE_NAME="p_Campaign_"$SQL_TRANSFORM_ADVERTISER_ID
+CONVERSION_TABLE_NAME="p_Conversion_"$SQL_TRANSFORM_ADVERTISER_ID
+
+SQL_TRANSFORM_SCHEDULED_QUERY_DISPLAY_NAME=$SOLUTION_PREFIX'Profit Bidder Scheduler query'
+SQL_TRANSFORM_SCHEDULED_QUERY_SCHEUDLE='every 1 hours'
 
 # comply the name and formulate the sa email account
 SERVICE_ACCOUNT_NAME=${SERVICE_ACCOUNT_NAME//_/-}
@@ -384,7 +433,7 @@ function create_cloud_function {
     --memory=$2 \
     --timeout=540s \
     --runtime python37 \
-    --update-env-vars="SA_EMAIL=${SA_EMAIL}" \
+    --update-env-vars="SA_EMAIL=${SA_EMAIL},TIMEZONE=${SQL_TRANSFORM_TIMEZONE}" \
     --service-account=${SA_EMAIL} \
     --update-labels="deploy_timestamp=$(deploy_timestamp)" \
     --entry-point=main 
@@ -419,6 +468,79 @@ function create_scheduler {
   else
     echo "Reusing ${scheduler_name}."
   fi
+}
+
+function create_bq_table {
+  dataset=$1
+  table_name=$2
+  schema_name=$3
+  sql_result=$(list_bq_table $1 $2)
+  echo "Creating BQ table: '${dataset}.${table_name}'" 
+  if [[ "$sql_result" == *"1"* ]]; then
+    echo "Reusing ${dataset}.${table_name}."
+  else
+    maybe_run bq mk -t --schema ${schema_name} --time_partitioning_type DAY ${dataset}.${table_name}
+  fi  
+}
+
+function create_sql_transform_file {
+  echo "Going to create profit_gen_query.sql file."
+  if [ -f "profit_gen_query.sql" ]; then
+    rm -rf profit_gen_query.sql
+  fi
+  maybe_run cp profit_gen_query_template.sql profit_gen_query.sql 
+  maybe_run sed -i "" "s|<project_id>|$SQL_TRANSFORM_PROJECT_ID|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<sa360_dataset_name>|$SQL_TRANSFORM_SA360_DATASET_NAME|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<advertiser_id>|$SQL_TRANSFORM_ADVERTISER_ID|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<floodlight_name>|$SQL_TRANSFORM_FLOODLIGHT_NAME|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<account_type>|$SQL_TRANSFORM_ACCOUNT_TYPE|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<gmc_dataset_name>|$SQL_TRANSFORM_GMC_DATASET_NAME|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<gmc_account_id>|$SQL_TRANSFORM_GMC_ACCOUNT_ID|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<business_dataset_name>|$SQL_TRANSFORM_BUSINESS_DATASET_NAME|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<client_margin_data_table>|$SQL_TRANSFORM_CLIENT_MARGIN_DATA_TABLE|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<client_profit_data_sku_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<client_profit_data_profit_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL|" profit_gen_query.sql
+  maybe_run sed -i "" "s|<target_floodlight_name>|$SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME|" profit_gen_query.sql
+  if [ ${DEPLOY_TEST_MODULE} -ne 1 ]; then
+    maybe_run sed -i "" "s|--<test>||" profit_gen_query.sql
+  fi
+}
+
+function create_sql_schedule_query {
+  echo "Going to create a scheduled query."
+  dataset=$1
+  table_name=$2
+  # WIP
+  echo 'Please create a SQL Job scheduler using the Cloud Console \n
+  Follow the instructions from here: https://cloud.google.com/bigquery/docs/scheduling-queries#console'
+}
+
+function load_bq_table {
+  dataset=$1
+  table_name=$2
+  data_file=$3
+  schema_name=$4
+  sql_result=$(list_bq_table $1 $2)
+  echo "Loading data to BQ table: '${dataset}.${table_name}'" 
+  if [[ "$sql_result" == *"1"* ]]; then
+    delete_bq_table $dataset $table_name
+  fi  
+  if [[ "$schema_name" == *"autodetect"* ]]; then
+    maybe_run bq load \
+    --autodetect \
+    --source_format=CSV \
+    $dataset.$table_name \
+    $data_file 
+  else
+    create_bq_table $dataset $table_name $schema_name
+    maybe_run bq load \
+      --source_format=CSV \
+      --time_partitioning_type=DAY \
+      --skip_leading_rows=1 \
+      ${dataset}.${table_name} \
+      ${data_file}
+  fi  
 }
 
 function delete_bq_ds {
@@ -482,6 +604,18 @@ function delete_scheduler {
   fi
 }
 
+function delete_bq_table {
+  dataset=$1
+  table_name=$2
+  sql_result=$(list_bq_table $1 $2)
+  echo "Deleting BQ table: '${dataset}.${table_name}'" 
+  if [[ "$sql_result" == *"1"* ]]; then
+    maybe_run bq rm -f -t $PROJECT:$dataset.$table_name
+  else
+    echo "${dataset}.${table_name} doesn't exists."
+  fi  
+}
+
 function list_storage_account {
   bucket=$1
   maybe_run gsutil ls -p ${PROJECT} gs://${PROJECT}-${bucket}
@@ -500,6 +634,31 @@ function list_cloud_function {
 function list_scheduler {
   scheduler_name=$1
   maybe_run gcloud scheduler jobs describe $scheduler_name --location=$CF_REGION
+}
+
+function list_bq_table {
+  dataset=$1
+  table_name=$2
+  echo "Checking BQ table exist: '${dataset}.${table_name}'" 
+  sql_query='SELECT
+    COUNT(1) AS cnt
+  FROM 
+    `<myproject>`.<mydataset>.__TABLES_SUMMARY__
+  WHERE table_id = "<mytable_name>"'
+  sql_query="${sql_query/<myproject>/${PROJECT}}"
+  sql_query="${sql_query/<mydataset>/${dataset}}"
+  sql_query="${sql_query/<mytable_name>/${table_name}}"
+
+  bq_qry_cmd="bq query --use_legacy_sql=false --format=csv '<mysql_qery>'"
+  bq_qry_cmd="${bq_qry_cmd/<mysql_qery>/${sql_query}}"
+  sql_result=$(eval $bq_qry_cmd)  
+  if [[ "$sql_result" == *"1"* ]]; then
+    echo "${dataset}.${table_name} exist"
+    echo "1"
+  else
+    echo "${dataset}.${table_name} doesn't exist"
+    echo "0"
+  fi   
 }
 
 if [ ! -z ${ADMIN} ]; then
@@ -567,11 +726,7 @@ if [ ${DEPLOY_PROFIT_DATA} -eq 1 ]; then
     # upload the data file into storage bucket
     maybe_run gsutil cp $CLIENT_MARGIN_DATA_FILE_WITH_PATH gs://${PROJECT}-${STORAGE_PROFIT}
     # load the profit data
-    maybe_run bq load \
-    --autodetect \
-    --source_format=CSV \
-    $DS_BUSINESS_DATA.$CLIENT_MARGIN_DATA_TABLE_NAME \
-    gs://${PROJECT}-${bucket}/$CLIENT_MARGIN_DATA_FILE_NAME
+    load_bq_table $DS_BUSINESS_DATA $CLIENT_MARGIN_DATA_TABLE_NAME "client_profit.csv" "autodetect"
   else
     echo "$CLIENT_MARGIN_DATA_FILE_WITH_PATH doesn't exist!"
     profit_data_usage
@@ -614,6 +769,40 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   fi  
 fi
 
+# Deploys the SQL JOB scheduler
+if [ ${DEPLOY_SQL_TRANSFORM} -eq 1 ]; then
+  pushd sql_query
+  # prepare the sql file
+  create_sql_transform_file
+  # schedule the sql job
+  popd
+fi
+
+# Deployes the test data and the code
+if [ ${DEPLOY_TEST_MODULE} -eq 1 ]; then
+  pushd solution_test
+  # create all the prerequsites 
+  echo "PREQUISITES!!!! - Deploy the solution first. \
+      Scheulde query, CF and data will be overwritten."
+  # create campaign table
+  # load test data to campaign table
+  load_bq_table $DS_SA360 $CAMPAIGN_TABLE_NAME "p_Campaign_${SQL_TRANSFORM_ADVERTISER_ID}.csv" "p_Campaign_schema.json"
+  # create conversion table
+  # load test data to conversion
+  load_bq_table $DS_SA360 $CONVERSION_TABLE_NAME "p_Conversion_${SQL_TRANSFORM_ADVERTISER_ID}.csv" "p_Conversion_schema.json"
+  # load test profit data
+  load_bq_table $DS_BUSINESS_DATA $CLIENT_MARGIN_DATA_TABLE_NAME "client_profit.csv" "autodetect"
+  popd
+  
+  pushd sql_query
+  # prepare the sql file
+  create_sql_transform_file
+  # schedule the sql job
+  create_sql_schedule_query $DS_BUSINESS_DATA $CM360_TABLE
+  popd
+fi
+
+# deletes the solution
 if [ ${DELETE_SOLUTION} -eq 1 ]; then
   echo "ALERT!!!! - Deletes all the GCP Services created for the solution!"
   delete_service_account $SA_EMAIL
@@ -628,6 +817,7 @@ if [ ${DELETE_SOLUTION} -eq 1 ]; then
   delete_scheduler $SCHEDULER_CM360
 fi
 
+# lists the soluiton
 if [ ${LIST_SOLUTION} -eq 1 ]; then
   maybe_run gcloud iam service-accounts describe $SA_EMAIL
   list_bq_ds $DS_SA360
@@ -639,6 +829,24 @@ if [ ${LIST_SOLUTION} -eq 1 ]; then
   list_cloud_function $CF_CM360
   list_scheduler $SCHEDULER_DELGATOR
   list_scheduler $SCHEDULER_CM360
+fi
+
+# lists the test module 
+if [ ${LIST_TEST_MODULE} -eq 1 ]; then
+  list_bq_table $DS_SA360 $CAMPAIGN_TABLE_NAME
+  list_bq_table $DS_SA360 $CONVERSION_TABLE_NAME
+  list_bq_table $DS_BUSINESS_DATA $CLIENT_MARGIN_DATA_TABLE_NAME
+fi
+
+# deletes the test module
+if [ ${DELETE_TEST_MODULE} -eq 1 ]; then
+  echo "ALERT!!!! - Deletes test module of the solution. \
+    You need to reload your data. \
+    You also need to redeploy the job scheduler and cfs.
+    "
+  delete_bq_table $DS_SA360 $CAMPAIGN_TABLE_NAME 
+  delete_bq_table $DS_SA360 $CONVERSION_TABLE_NAME 
+  delete_bq_table $DS_BUSINESS_DATA $CLIENT_MARGIN_DATA_TABLE_NAME
 fi
 
 echo 'Script ran successfully!'

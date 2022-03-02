@@ -1,0 +1,261 @@
+[
+    {
+      "description": "DS engine account ID.",
+      "mode": "NULLABLE",
+      "name": "accountId",
+      "type": "STRING"
+    },
+    {
+      "description": "Ad serving rotation used by the campaign: Optimize, Conversion optimize, Rotate, or Rotate indefinitely.",
+      "mode": "NULLABLE",
+      "name": "adRotation",
+      "type": "STRING"
+    },
+    {
+      "description": "The bid strategy AdWords uses for this campaign: Manual cpc, Manual cpm, Percent cpa, Budget optimizer, or Conversion optimizer. Campaigns using DS bid strategies are set to Manual cpc or Manual cpm.",
+      "mode": "NULLABLE",
+      "name": "adWordsBidStrategy",
+      "type": "STRING"
+    },
+    {
+      "description": "DS advertiser ID.",
+      "mode": "NULLABLE",
+      "name": "advertiserId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS agency ID.",
+      "mode": "NULLABLE",
+      "name": "agencyId",
+      "type": "STRING"
+    },
+    {
+      "description": "Indicates whether this entity's bid strategy is inherited.",
+      "mode": "NULLABLE",
+      "name": "bidStrategyInherited",
+      "type": "BOOLEAN"
+    },
+    {
+      "description": "How budget is controlled for Bing Ads campaigns: Daily budget, Monthly even spend, Monthly accelerated spend, Daily accelerated spend, or Daily even spend.",
+      "mode": "NULLABLE",
+      "name": "bingAdsBudgetType",
+      "type": "STRING"
+    },
+    {
+      "description": "Campaign name.",
+      "mode": "NULLABLE",
+      "name": "campaign",
+      "type": "STRING"
+    },
+    {
+      "description": "End date of the campaign.",
+      "mode": "NULLABLE",
+      "name": "campaignEndDate",
+      "type": "DATE"
+    },
+    {
+      "description": "ID of the campaign in the external engine account.",
+      "mode": "NULLABLE",
+      "name": "campaignEngineId",
+      "type": "STRING"
+    },
+    {
+      "description": "DS campaign ID.",
+      "mode": "NULLABLE",
+      "name": "campaignId",
+      "type": "STRING"
+    },
+    {
+      "description": "Names of labels directly assigned to this campaign; inherited labels are not included.",
+      "mode": "NULLABLE",
+      "name": "campaignLabels",
+      "type": "STRING"
+    },
+    {
+      "description": "The percentage by which bids are adjusted for mobile. For example, 0.2 means 20% increase, so mobile bids are 1.2 times the amount of non-mobile bids. This value can be -1 or between -0.9 and 3.0, inclusive.",
+      "mode": "NULLABLE",
+      "name": "campaignMobileBidAdjustment",
+      "type": "FLOAT"
+    },
+    {
+      "description": "Start date of the campaign.",
+      "mode": "NULLABLE",
+      "name": "campaignStartDate",
+      "type": "DATE"
+    },
+    {
+      "description": "Indicates the type of campaign: Manual, Inventory, Inventory - PLA, Shopping, Comparison shopping, or Mobile app install.",
+      "mode": "NULLABLE",
+      "name": "campaignType",
+      "type": "STRING"
+    },
+    {
+      "description": "City targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "cityTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Country targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "countryTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Timestamp of the campaign's creation, formatted in ISO 8601.",
+      "mode": "NULLABLE",
+      "name": "creationTimestamp",
+      "type": "TIMESTAMP"
+    },
+    {
+      "description": "Daily budget of the campaign.",
+      "mode": "NULLABLE",
+      "name": "dailyBudget",
+      "type": "FLOAT"
+    },
+    {
+      "description": "Budget delivery method of the campaign: Standard or Accelerated.",
+      "mode": "NULLABLE",
+      "name": "deliveryMethod",
+      "type": "STRING"
+    },
+    {
+      "description": "Device targets at the campaign level; a combination of Desktop, Mobile, Tablet, or Other.",
+      "mode": "NULLABLE",
+      "name": "deviceTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "DS ID of the bid strategy assigned to this entity, or inherited by this entity.",
+      "mode": "NULLABLE",
+      "name": "effectiveBidStrategyId",
+      "type": "STRING"
+    },
+    {
+      "description": "City targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "effectiveCityTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Country targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "effectiveCountryTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Device targets at the campaign level; a combination of Desktop, Mobile, Tablet, or Other.",
+      "mode": "NULLABLE",
+      "name": "effectiveDeviceTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Names of all labels inherited or directly assigned to this campaign.",
+      "mode": "NULLABLE",
+      "name": "effectiveLabels",
+      "type": "STRING"
+    },
+    {
+      "description": "Metro targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "effectiveMetroTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Province targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "effectiveProvinceTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Additional status of the campaign in the external engine account. Possible statuses (depending on the type of external account) include disapproved, budget constrained, etc.",
+      "mode": "NULLABLE",
+      "name": "engineStatus",
+      "type": "STRING"
+    },
+    {
+      "description": "City targets excluded from the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "excludedCityTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Country targets excluded from the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "excludedCountryTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Metro targets excluded from the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "excludedMetroTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Province targets excluded from the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "excludedProvinceTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Whether keyword near match is enabled for the campaign: Enabled or Disabled.",
+      "mode": "NULLABLE",
+      "name": "keywordNearMatchEnabled",
+      "type": "STRING"
+    },
+    {
+      "description": "Language targets at the campaign level. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "languageTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Timestamp of the campaign's most recent modification, formatted in ISO 8601.",
+      "mode": "NULLABLE",
+      "name": "lastModifiedTimestamp",
+      "type": "TIMESTAMP"
+    },
+    {
+      "description": "Metro targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "metroTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "Monthly budget of the campaign.",
+      "mode": "NULLABLE",
+      "name": "monthlyBudget",
+      "type": "FLOAT"
+    },
+    {
+      "description": "The type of network(s) the campaign advertises on.",
+      "mode": "NULLABLE",
+      "name": "networkTarget",
+      "type": "STRING"
+    },
+    {
+      "description": "Province targets included in the campaign. Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "provinceTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "An alias for the campaignStatus attribute.",
+      "mode": "NULLABLE",
+      "name": "status",
+      "type": "STRING"
+    },
+    {
+      "description": "Geo targets for Yahoo Search Marketing campaigns. See Download upload templates and geo/language codes.",
+      "mode": "NULLABLE",
+      "name": "yahooGeoTargets",
+      "type": "STRING"
+    },
+    {
+      "description": "The bid strategy Yahoo! JAPAN uses for this campaign: Manual cpc or Budget optimizer. Campaigns using DS bid strategies are set to Manual cpc.",
+      "mode": "NULLABLE",
+      "name": "yahooJapanBidStrategy",
+      "type": "STRING"
+    }
+  ]
+  
