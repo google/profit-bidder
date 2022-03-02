@@ -228,7 +228,7 @@ SELECT
     conversionTimestampMicros,
     CALCULATED_PROFIT AS conversionRevenue,
     conversionQuantity,
-    -- Here you will set your target/placeholder floodlight name
+    -- The below is used only troublehsooting purpose.
     "<target_floodlight_name>" AS floodlightActivity,
     conversionSearchTerm,
     conversionType,
