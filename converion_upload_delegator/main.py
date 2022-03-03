@@ -203,15 +203,24 @@ def decode_json(payload):
 
 def main(event, context):
     print('[{}] - Start Conversion upload delegator'.format(time_now_str()))
-    print('EVENT: ', event)
+    print(f'EVENT: {event}')
     # set correct timezone for datetime check
     todays_date = today_date()
 
     # Instansiate BQ client
     cloud_client = bigquery.Client()
 
-    # decode pub/sub payload
-    payload = base64.b64decode(event.get('data', '')).decode('utf-8')
+    payload = ''
+    if 'type.googleapis.com/google.pubsub.v1.PubsubMessage' == event.get('@type', ''):
+        # decode pub/sub payload
+        payload = base64.b64decode(event.get('data', '')).decode('utf-8')
+        # the below is to get rid of the sourrounding single quotes
+        # the single quotes are injected at the creation time the shell script 
+        #   the shell cmds injects them.
+        payload = payload.replace("'{", "{").replace("}'", "}")
+    else:
+        # the CF is inovked from the Testing functionalities of the console
+        payload = json.dumps(event)
     table_name, topic, config = decode_json(payload)
     print(f'table: {table_name} topic: {topic} config: {config}')
 
