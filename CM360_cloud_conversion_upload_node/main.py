@@ -127,7 +127,7 @@ def upload_data(rows, profile_id, fl_configuration_id, fl_activity_id):
 
 def main(event, context):
     print('[{}] - Start CM360 conversion upload'.format(time_now_str()))
-    print('Event: ', event)
+    print(f'EVENT: {event}')
 
     # decode pub/sub payload
     payload = base64.b64decode(event.get('data')).decode('ascii')
