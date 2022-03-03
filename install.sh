@@ -42,7 +42,6 @@ Options with default values:
   --scheduler_delegator     Scheduler name for the Delegator CF
   --cm360-pubsub-topic      PubSub topic name for the CM360 processing
   --cf-cm360                Cloud Function name for the CM360 processing logic
-  --scheduler_cm360         Scheduler name for the CM360 CF
 Deployment directives:
   --activate-apis     Activate all missing but required Cloud APIs
   --create-service-account
@@ -103,7 +102,6 @@ sh install.sh --dry-run --deploy-all \
   --scheduler_delegator=my_scheduler_delegator \
   --cm360-pubsub-topic=my_cm360_topic \
   --cf-cm360=my_cf_cm360 \
-  --scheduler_cm360=my_scheduler_cm360
 
 EOF
 
@@ -153,7 +151,6 @@ CF_DELEGATOR=$SOLUTION_PREFIX"cloud_conversion_upload_delegator"
 SCHEDULER_DELGATOR=$SOLUTION_PREFIX"delegator-scheduler"
 CF_CM360=$SOLUTION_PREFIX"cm360_cloud_conversion_upload_node"
 CM360_PUBSUB_TOPIC_NAME=$SOLUTION_PREFIX"cm360_conversion_upload"
-SCHEDULER_CM360=$SOLUTION_PREFIX"cm360-scheduler"
 CF_REGION="us-central1"
 SA_ROLES="roles/bigquery.dataViewer roles/pubsub.publisher roles/iam.serviceAccountTokenCreator"
 
@@ -220,9 +217,6 @@ while [[ ${1:-} == -* ]] ; do
       ;;
     --cf-cm360*)
       IFS="=" read _cmd CF_CM360 <<< "$1" && [ -z ${CF_CM360} ] && shift && CF_CM360=$1
-      ;;
-    --scheduler_cm360*)
-      IFS="=" read _cmd SCHEDULER_CM360 <<< "$1" && [ -z ${SCHEDULER_CM360} ] && shift && SCHEDULER_CM360=$1
       ;;
     --cm360-pubsub-topic*)
       IFS="=" read _cmd CM360_PUBSUB_TOPIC_NAME <<< "$1" && [ -z ${CM360_PUBSUB_TOPIC_NAME} ] && shift && CM360_PUBSUB_TOPIC_NAME=$1
@@ -847,7 +841,6 @@ if [ ${LIST_SOLUTION} -eq 1 ]; then
   list_cloud_function $CF_DELEGATOR
   list_cloud_function $CF_CM360
   list_scheduler $SCHEDULER_DELGATOR
-  list_scheduler $SCHEDULER_CM360
 fi
 
 # lists the test module 
