@@ -23,7 +23,7 @@ Usage:
   install.sh [options]
 Options - Mandatory:
   --project         GCP Project Id
-CM360 Deployment Options:
+Delegator Deployment Options:
   --cm360-table            BQ table contains the transformed data
   --cm360-profile-id       CM360 profile id
   --cm360-fl-activity-id   CM360 floodlight activity id
@@ -78,7 +78,7 @@ sh install.sh --dry-run --deploy-profit-data \
   --storage-profit=my_profit_sa \
   --profit-file=my/path/file.csv
 
-sh install.sh --dry-run --deploy-cm360-function \
+sh install.sh --dry-run --deploy-delegator \
   --project=<project_id> \
   --cm360-table=my_tbl \
   --cm360-profile-id=my_profile_id \
@@ -457,7 +457,7 @@ function create_scheduler {
     #   --topic="$topic" \
     #   --message-body=\'$3\'
     if [ "${DRY_RUN:-}" = "echo" ]; then
-        echo gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
+        echo gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 6 * * *" --topic=$topic --message-body="$message_body"
     else
         if [ "$VERBOSE" = "true" ]; then
             echo $scheduler_cmd
@@ -757,35 +757,35 @@ fi
 # create cloud funtions
 if [ ${DEPLOY_DELEGATOR} -eq 1 ]; then
   echo "Provisioning delegators"
-  # check for the service account
-  create_service_account
-  pushd converion_upload_delegator
-  create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
-  popd
-  create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME "$(cm360_json)"
-fi
-
-if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
-  echo "Provisioning CM360 CF"
   if [ -z "${CM360_TABLE}" ] || [ -z "${CM360_PROFILE_ID}" ] || [ -z "${CM360_FL_ACTIVITY_ID}" ] || [ -z "${CM360_FL_CONFIG_ID}" ]; then
     usage
     echo "\nYou must specify --cm360-table, --cm360-profile-id, --cm360-fl-activity-id,--cm360-fl-config-id to 'deploy-cm360-function'."
   else
     # check for the service account
     create_service_account
-    # check the storage account
-    create_storage_account $STORAGE_LOGS
-    pushd CM360_cloud_conversion_upload_node
-    create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
+    pushd converion_upload_delegator
+    create_cloud_function $CF_DELEGATOR "2GB" $DELEGATOR_PUBSUB_TOPIC_NAME
     popd
-    if [ "$VERBOSE" = "true" ]; then
-      echo
-      echo
-      echo "Delegator payload JSON:"
-      cm360_json
-      echo
-      echo
-    fi  
+    create_scheduler $SCHEDULER_DELGATOR $DELEGATOR_PUBSUB_TOPIC_NAME "$(cm360_json)"
+  fi
+fi
+
+if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
+  echo "Provisioning CM360 CF"
+  # check for the service account
+  create_service_account
+  # check the storage account
+  create_storage_account $STORAGE_LOGS
+  pushd CM360_cloud_conversion_upload_node
+  create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
+  popd
+  if [ "$VERBOSE" = "true" ]; then
+    echo
+    echo
+    echo "Delegator payload JSON:"
+    cm360_json
+    echo
+    echo
   fi  
 fi
 
@@ -834,7 +834,6 @@ if [ ${DELETE_SOLUTION} -eq 1 ]; then
   delete_cloud_function $CF_DELEGATOR
   delete_scheduler $SCHEDULER_DELGATOR
   delete_cloud_function $CF_CM360
-  delete_scheduler $SCHEDULER_CM360
 fi
 
 # lists the soluiton
