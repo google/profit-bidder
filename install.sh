@@ -306,7 +306,7 @@ SQL_TRANSFORM_PROJECT_ID=$PROJECT
 SQL_TRANSFORM_SA360_DATASET_NAME=$DS_SA360
 SQL_TRANSFORM_ADVERTISER_ID="43939335402485897" #synthensized id to test.
 SQL_TRANSFORM_TIMEZONE="America/New_York"
-SQL_TRANSFORM_FLOODLIGHT_NAME="My Sample Floodlight Activity"
+SQL_TRANSFORM_SOURCE_FLOODLIGHT_NAME="My Sample Floodlight Activity"
 SQL_TRANSFORM_ACCOUNT_TYPE="Other engines"
 SQL_TRANSFORM_GMC_DATASET_NAME=$DS_GMC
 SQL_TRANSFORM_GMC_ACCOUNT_ID="mygmc_account_id"
@@ -489,7 +489,7 @@ function create_sql_transform_file {
     maybe_run sed -i "s|<sa360_dataset_name>|$SQL_TRANSFORM_SA360_DATASET_NAME|" profit_gen_query.sql
     maybe_run sed -i "s|<advertiser_id>|$SQL_TRANSFORM_ADVERTISER_ID|" profit_gen_query.sql
     maybe_run sed -i "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_query.sql
-    maybe_run sed -i "s|<floodlight_name>|$SQL_TRANSFORM_FLOODLIGHT_NAME|" profit_gen_query.sql
+    maybe_run sed -i "s|<floodlight_name>|$SQL_TRANSFORM_SOURCE_FLOODLIGHT_NAME|" profit_gen_query.sql
     maybe_run sed -i "s|<account_type>|$SQL_TRANSFORM_ACCOUNT_TYPE|" profit_gen_query.sql
     maybe_run sed -i "s|<gmc_dataset_name>|$SQL_TRANSFORM_GMC_DATASET_NAME|" profit_gen_query.sql
     maybe_run sed -i "s|<gmc_account_id>|$SQL_TRANSFORM_GMC_ACCOUNT_ID|" profit_gen_query.sql
@@ -507,7 +507,7 @@ function create_sql_transform_file {
     maybe_run sed -i "" "s|<sa360_dataset_name>|$SQL_TRANSFORM_SA360_DATASET_NAME|" profit_gen_query.sql
     maybe_run sed -i "" "s|<advertiser_id>|$SQL_TRANSFORM_ADVERTISER_ID|" profit_gen_query.sql
     maybe_run sed -i "" "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_query.sql
-    maybe_run sed -i "" "s|<floodlight_name>|$SQL_TRANSFORM_FLOODLIGHT_NAME|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<floodlight_name>|$SQL_TRANSFORM_SOURCE_FLOODLIGHT_NAME|" profit_gen_query.sql
     maybe_run sed -i "" "s|<account_type>|$SQL_TRANSFORM_ACCOUNT_TYPE|" profit_gen_query.sql
     maybe_run sed -i "" "s|<gmc_dataset_name>|$SQL_TRANSFORM_GMC_DATASET_NAME|" profit_gen_query.sql
     maybe_run sed -i "" "s|<gmc_account_id>|$SQL_TRANSFORM_GMC_ACCOUNT_ID|" profit_gen_query.sql
