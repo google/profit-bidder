@@ -169,7 +169,6 @@ def pluralize(count):
 
 def partition_and_distribute(cloud_client, table_ref_name, topic, config):
     batch_size = 1000
-    batch_size = 1
     for batch in get_data(table_ref_name, cloud_client, batch_size):
         print(f'Batch size: {len(batch)} batch: {batch}')
         publish(batch, topic, config)
