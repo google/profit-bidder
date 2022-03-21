@@ -676,6 +676,9 @@ function list_bq_table {
   fi   
 }
 
+# set the gcp project
+maybe_run gcloud config set project $PROJECT
+
 if [ ! -z ${ADMIN} ]; then
   _ADMIN="ADMINISTRATOR_EMAIL=${ADMIN}"
 fi
