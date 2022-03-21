@@ -34,6 +34,15 @@
 -- client_profit_data_sku_col as: <client_profit_data_sku_col>
 -- client_profit_data_profit_col as: <client_profit_data_profit_col>
 -- target_floodlight_name as: <target_floodlight_name>
+-- product_sku_var as: <product_sku_var>
+-- product_quantity_var as: <product_quantity_var>
+-- product_unit_price_var as: <product_unit_price_var>
+-- product_sku_regex as: <product_sku_regex>
+-- product_quantity_regex as: <product_quantity_regex>
+-- product_unit_price_regex as: <product_unit_price_regex>
+-- product_sku_delim as: <product_sku_delim>
+-- product_quantity_delim as: <product_quantity_delim>
+-- product_unit_price_delim as: <product_unit_price_delim>
 -- 
 -- Replace --test with empty string for non-test environments
 -- 
@@ -56,9 +65,9 @@ campaigns AS (
         conv.*,
         campaign,
         -- example of U-Variables that are parsed to extract product purchase data
-        SPLIT(REGEXP_EXTRACT(floodlightEventRequestString, "u9=(.*?);"),"|") AS u9,
-        SPLIT(REGEXP_EXTRACT(floodlightEventRequestString, "u10=(.*?);"),"|") AS u10,
-        SPLIT(REGEXP_EXTRACT(floodlightEventRequestString, "u11=(.*?);"),"|") AS u11,
+        SPLIT(REGEXP_EXTRACT(floodlightEventRequestString, "<product_sku_var>=<product_sku_regex>"),"<product_sku_delim>") AS u9,
+        SPLIT(REGEXP_EXTRACT(floodlightEventRequestString, "<product_quantity_var>=<product_quantity_regex>"),"<product_quantity_delim>") AS u10,
+        SPLIT(REGEXP_EXTRACT(floodlightEventRequestString, "<product_unit_price_var>=<product_unit_price_regex>"),"<product_unit_price_delim>") AS u11,
     FROM `<project_id>.<sa360_dataset_name>.p_Conversion_<advertiser_id>` AS conv
     LEFT JOIN (
         SELECT campaign, campaignId
