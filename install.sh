@@ -315,6 +315,15 @@ SQL_TRANSFORM_CLIENT_MARGIN_DATA_TABLE=$CLIENT_MARGIN_DATA_TABLE_NAME
 SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL="sku"
 SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL="profit"
 SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME="My Sample Floodlight Activity"
+SQL_TRANSFORM_PRODUCT_SKU_VAR="u9"
+SQL_TRANSFORM_PRODUCT_QUANTITY_VAR="u10"
+SQL_TRANSFORM_PRODUCT_UNIT_PRICE_VAR="u11"
+SQL_TRANSFORM_PRODUCT_SKU_REGEX="(.*?);"
+SQL_TRANSFORM_PRODUCT_QUANTITY_REGEX="(.*?);"
+SQL_TRANSFORM_PRODUCT_UNIT_PRICE_REGEX="(.*?);"
+SQL_TRANSFORM_PRODUCT_SKU_DELIM="|"
+SQL_TRANSFORM_PRODUCT_QUANTITY_DELIM="|"
+SQL_TRANSFORM_PRODUCT_UNIT_PRICE_DELIM="|"
 
 CAMPAIGN_TABLE_NAME="p_Campaign_"$SQL_TRANSFORM_ADVERTISER_ID
 CONVERSION_TABLE_NAME="p_Conversion_"$SQL_TRANSFORM_ADVERTISER_ID
@@ -498,6 +507,15 @@ function create_sql_transform_file {
     maybe_run sed -i "s|<client_profit_data_sku_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL|" profit_gen_query.sql
     maybe_run sed -i "s|<client_profit_data_profit_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL|" profit_gen_query.sql
     maybe_run sed -i "s|<target_floodlight_name>|$SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME|" profit_gen_query.sql
+    maybe_run sed -i "s|<product_sku_var>|$SQL_TRANSFORM_PRODUCT_SKU_VAR|" profit_gen_query.sql
+    maybe_run sed -i "s|<product_sku_regex>|$SQL_TRANSFORM_PRODUCT_SKU_REGEX|" profit_gen_query.sql
+    maybe_run sed -i "s#<product_sku_delim>#$SQL_TRANSFORM_PRODUCT_SKU_DELIM#" profit_gen_query.sql
+    maybe_run sed -i "s|<product_quantity_var>|$SQL_TRANSFORM_PRODUCT_QUANTITY_VAR|" profit_gen_query.sql
+    maybe_run sed -i "s|<product_quantity_regex>|$SQL_TRANSFORM_PRODUCT_QUANTITY_REGEX|" profit_gen_query.sql
+    maybe_run sed -i "s#<product_quantity_delim>#$SQL_TRANSFORM_PRODUCT_QUANTITY_DELIM#" profit_gen_query.sql
+    maybe_run sed -i "s|<product_unit_price_var>|$SQL_TRANSFORM_PRODUCT_UNIT_PRICE_VAR|" profit_gen_query.sql
+    maybe_run sed -i "s|<product_unit_price_regex>|$SQL_TRANSFORM_PRODUCT_UNIT_PRICE_REGEX|" profit_gen_query.sql
+    maybe_run sed -i "s#<product_unit_price_delim>#$SQL_TRANSFORM_PRODUCT_UNIT_PRICE_DELIM#" profit_gen_query.sql
     if [ ${DEPLOY_TEST_MODULE} -ne 1 ]; then
         maybe_run sed -i "s|--<test>||" profit_gen_query.sql
     fi
@@ -516,6 +534,15 @@ function create_sql_transform_file {
     maybe_run sed -i "" "s|<client_profit_data_sku_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_SKU_COL|" profit_gen_query.sql
     maybe_run sed -i "" "s|<client_profit_data_profit_col>|$SQL_TRANSFORM_CLIENT_PROFIT_DATA_PROFIT_COL|" profit_gen_query.sql
     maybe_run sed -i "" "s|<target_floodlight_name>|$SQL_TRANSFORM_TARGET_FLOODLIGHT_NAME|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<product_sku_var>|$SQL_TRANSFORM_PRODUCT_SKU_VAR|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<product_sku_regex>|$SQL_TRANSFORM_PRODUCT_SKU_REGEX|" profit_gen_query.sql
+    maybe_run sed -i "" "s#<product_sku_delim>#$SQL_TRANSFORM_PRODUCT_SKU_DELIM#" profit_gen_query.sql
+    maybe_run sed -i "" "s|<product_quantity_var>|$SQL_TRANSFORM_PRODUCT_QUANTITY_VAR|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<product_quantity_regex>|$SQL_TRANSFORM_PRODUCT_QUANTITY_REGEX|" profit_gen_query.sql
+    maybe_run sed -i "" "s#<product_quantity_delim>#$SQL_TRANSFORM_PRODUCT_QUANTITY_DELIM#" profit_gen_query.sql
+    maybe_run sed -i "" "s|<product_unit_price_var>|$SQL_TRANSFORM_PRODUCT_UNIT_PRICE_VAR|" profit_gen_query.sql
+    maybe_run sed -i "" "s|<product_unit_price_regex>|$SQL_TRANSFORM_PRODUCT_UNIT_PRICE_REGEX|" profit_gen_query.sql
+    maybe_run sed -i "" "s#<product_unit_price_delim>#$SQL_TRANSFORM_PRODUCT_UNIT_PRICE_DELIM#" profit_gen_query.sql
     if [ ${DEPLOY_TEST_MODULE} -ne 1 ]; then
       maybe_run sed -i "" "s|--<test>||" profit_gen_query.sql
     fi
