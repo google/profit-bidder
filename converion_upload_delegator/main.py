@@ -48,35 +48,11 @@ def time_now_str():
     return datetime.datetime.now(tz).strftime("%m-%d-%Y, %H:%M:%S")
 
 
-def get_dataset(table_name, cloud_client):
-    datasets = cloud_client.list_datasets()
-    all_datasets = list(datasets)
-    count_datasets = len(all_datasets)
-    print(f'get_dataset found {count_datasets} datasets')
-    found = False
-    table_ref = None
-    for dataset in all_datasets:
-        print(dataset)
-        table = '{}.{}.{}'.format(cloud_client.project,
-                                               dataset.dataset_id,
-                                               table_name)
-        try:
-            print('trying {}'.format(table))
-            table_ref = cloud_client.get_table(table)
-        except:
-            print('Table not found')
-            pass
-        else:
-            print('Table found: {} | {} | {} | {}'.format(table_ref.dataset_id,
-                                                        table_ref.full_table_id,
-                                                        table_ref.created.date(),
-                                                        table_ref.modified.date()))
-            found = True
-            return table_ref
-    if not found:
-        # TODO(angelozamudio) Add Error Handling
-        raise ValueError('Could not find table with the provided table name: {}.'.format(table_name))
-
+def get_dataset(dataset_name, table_name, cloud_client):
+    try: 
+        return cloud_client.get_table(f'{dataset_name}.{table_name}')
+    except:
+        raise ValueError('Could not find table with the provided table name: {}.'.format(f'{dataset_name}.{table_name}'))    
 
 # Publishes a message to a Cloud Pub/Sub topic.
 def publish(data, topic_name, config):
@@ -181,6 +157,7 @@ def decode_json(payload):
     '''
     Example payload:
     {
+      "dataset_name": "dataset",
       "table_name": "table",
       "topic": "topic",
       "cm360_config": {
@@ -195,10 +172,11 @@ def decode_json(payload):
     except:
         print(f'Unable to parse json payload: {payload}')
         raise
+    dataset_name = json_payload['dataset_name'] if 'dataset_name' in json_payload else None
     table_name = json_payload['table_name'] if 'table_name' in json_payload else None
     topic = json_payload['topic'] if 'topic' in json_payload else None
     config = json_payload['cm360_config'] if 'cm360_config' in json_payload else None
-    return table_name, topic, config
+    return dataset_name, table_name, topic, config
 
 def main(event, context):
     print('[{}] - Start Conversion upload delegator'.format(time_now_str()))
@@ -207,7 +185,7 @@ def main(event, context):
     todays_date = today_date()
 
     # Instansiate BQ client
-    cloud_client = bigquery.Client()
+    cloud_client = bigquery.Client(project=PROJECT_ID)
 
     payload = ''
     if 'type.googleapis.com/google.pubsub.v1.PubsubMessage' == event.get('@type', ''):
@@ -220,10 +198,10 @@ def main(event, context):
     else:
         # the CF is inovked from the Testing functionalities of the console
         payload = json.dumps(event)
-    table_name, topic, config = decode_json(payload)
-    print(f'table: {table_name} topic: {topic} config: {config}')
+    dataset_name, table_name, topic, config = decode_json(payload)
+    print(f'dataset: {dataset_name}, table: {table_name} topic: {topic} config: {config}')
 
-    table = get_dataset(table_name, cloud_client)
+    table = get_dataset(dataset_name, table_name, cloud_client)
     
     if table is not None:
         table_ref_name = table.full_table_id.replace(':', '.')

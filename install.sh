@@ -338,6 +338,7 @@ SA_EMAIL=${SERVICE_ACCOUNT_NAME}@${PROJECT}.iam.gserviceaccount.com
 function cm360_json {
 cat <<EOF
 {
+  "dataset_name": "${DS_BUSINESS_DATA}",
   "table_name": "${CM360_TABLE}",
   "topic": "$CM360_PUBSUB_TOPIC_NAME",
   "cm360_config": {
@@ -437,7 +438,6 @@ function create_cloud_function {
     --timeout=540s \
     --runtime python37 \
     --update-env-vars="SA_EMAIL=${SA_EMAIL},TIMEZONE=${SQL_TRANSFORM_TIMEZONE}" \
-    --service-account=${SA_EMAIL} \
     --update-labels="deploy_timestamp=$(deploy_timestamp)" \
     --entry-point=main 
   else
