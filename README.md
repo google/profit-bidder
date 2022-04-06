@@ -2,8 +2,6 @@
 
 > Disclaimer: This is not an official Google product.
 
-**Author:** Angelo Zamudio (angelozamudio@google.com), Damodar Panigrahi (dpani@google.com)
-
 ### Objective
 
 To create an automated data pipeline that will run daily to extract the previous day's conversion data via an SA360 data transfer, generate new conversions with calculated order profit as revenue based on margin data file and upload the new conversions back into Search Ads 360 (SA360) where it will be leveraged for Custom Bidding and/or reporting.
