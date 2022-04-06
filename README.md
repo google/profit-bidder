@@ -2,7 +2,7 @@
 
 > Disclaimer: This is not an official Google product.
 
-**Author:** Angelo Zamudio (angelozamudio@google.com)
+**Author:** Angelo Zamudio (angelozamudio@google.com), Damodar Panigrahi (dpani@google.com)
 
 ### Objective
 
