@@ -204,7 +204,7 @@ SA360 sample payload:
 ```json
 {  
 	"table_name": "conversion_final_<SA360_advertiser_id>",  
-	"topic": "SA360_conversion_upload"  //configurable in install.sh
+	"topic": "SA360_conversion_upload"  //hardcode
 }
 ```
 
