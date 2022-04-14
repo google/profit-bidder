@@ -209,11 +209,12 @@ SA360 sample payload:
 ```
 
 ### Quick start up guide
-![Notebook](solution_test/profit_bidder_quickstart.ipynb?raw=true "Notebook")
-Notebook uses the synthesized data, which you can run in less than 30 mins to comprehend the core concept and familiarize yourself with the code. 
+[Notebook](solution_test/profit_bidder_quickstart.ipynb) uses the synthesized data, which you can run in less than 30 mins to comprehend the core concept and familiarize yourself with the code. 
+
 We recommend that you follow three broad phases to productionalize the solution: 
 * Phase 1 - use the notebook to valid account access, etc., 
 * Phase 2 - use the test module to further test with the full stack of the services, and finally, 
 * Phase 3 - operationalize the solution in your environment.
 
 ### Demo solution with synthesized data
+We provide synthesized test data to test the solution in the [test_solution](solution_test/) folder. Please use the install.sh with proper parameters to install the demo module.
