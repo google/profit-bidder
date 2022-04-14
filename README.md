@@ -8,6 +8,10 @@
 
 To create an automated data pipeline that will run daily to extract the previous day's conversion data via an SA360 data transfer, generate new conversions with calculated order profit as revenue based on margin data file and upload the new conversions back into Search Ads 360 (SA360) where it will be leveraged for Custom Bidding and/or reporting.
 
+### Solution Architecture
+Please find below the architecture of the solution:
+![Architecture](assets/images/Profitbid_arch.svg?raw=true "Architecture")
+
 ### Requirements
 
 The pipeline is built within a **Google Cloud** project instance and uses the following cloud products and technologies:
@@ -184,14 +188,15 @@ For this step you may [create a new project instance](https://cloud.google.com/a
 ### Cloud Scheduler Pub/Sub Payload Examples
 CM360 sample payload:
 ```json
-{  
-	"table_name": "conversion_final_<CM360_advertiser_id>",  
-	"topic": "cm360_conversion_upload",  // hardcoded
-	"cm360_config": {  
-		"profile_id": <service account CM360 Profile ID>,  
-		"floodlight_activity_id" : <CM360 short form Floodlight Activity ID>,  
-		"floodlight_configuration_id": <CM360 Floodlight Configuration ID>  
-	}  
+{ //configurable in install.sh
+  "dataset_name": <DS_BUSINESS_DATA>,
+  "table_name": <CM360_TABLE>,
+  "topic": <CM360_PUBSUB_TOPIC_NAME>,
+  "cm360_config": {
+    "profile_id": <CM360_PROFILE_ID>,
+    "floodlight_activity_id": <CM360_FL_ACTIVITY_ID>,
+    "floodlight_configuration_id": <CM360_FL_CONFIG_ID>
+  }
 }
 ```
 
@@ -199,6 +204,16 @@ SA360 sample payload:
 ```json
 {  
 	"table_name": "conversion_final_<SA360_advertiser_id>",  
-	"topic": "SA360_conversion_upload"  // hardcoded
+	"topic": "SA360_conversion_upload"  //configurable in install.sh
 }
 ```
+
+### Quick start up guide
+![Notebook](solution_test/profit_bidder_quickstart.ipynb?raw=true "Notebook")
+Notebook uses the synthesized data, which you can run in less than 30 mins to comprehend the core concept and familiarize yourself with the code. 
+We recommend that you follow three broad phases to productionalize the solution: 
+* Phase 1 - use the notebook to valid account access, etc., 
+* Phase 2 - use the test module to further test with the full stack of the services, and finally, 
+* Phase 3 - operationalize the solution in your environment.
+
+### Demo solution with synthesized data
