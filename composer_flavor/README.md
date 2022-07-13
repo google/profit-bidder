@@ -1,15 +1,30 @@
+## License
+```
+Copyright 2022 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 # SA360 Profit Bidder Pipeline
 
-> Disclaimer: This is not an official Google product.
-There is an alternative deployment architecture available [here](/composer_flavor/README.md).
+> Disclaimer: This is not an official Google product.  
 
-### Objective
-
-To create an automated data pipeline that will run daily to extract the previous day's conversion data via an SA360 data transfer, generate new conversions with calculated order profit as revenue based on margin data file and upload the new conversions back into Search Ads 360 (SA360) where it will be leveraged for Custom Bidding and/or reporting.
+Deploy the pipeline using Cloud Composer. There is an alternative deployment architecture available [here](../README.md).
 
 ### Solution Architecture
 Please find below the architecture of the solution:
-![Architecture](assets/images/Profitbid_arch.svg?raw=true "Architecture")
+![Architecture](/assets/images/Profitbid%20_arch_Composer%20flavor.svg?raw=true "Architecture")
 
 ### Requirements
 
@@ -22,15 +37,10 @@ The pipeline is built within a **Google Cloud** project instance and uses the fo
 			- Store the  margin data file
 			- Data storage
 			- Data transformation
-	- Google Cloud Functions
+	- Google Cloud Composer
 		- Function:
-			- Execute script to upload new conversions via SA360 API
-	- Google Cloud Scheduler
-		- Function:
-			- Trigger cloud function
-	- Google Cloud Storage  *(optional)*
-		- Function:
-				- Store upload script execution/error logs
+			- Execute a Stored Procedure to transform and calculate profit
+            - Push the profit conversion data to SA360/CM360
 	- Python 3.7
 	- Standard SQL
 	- Caampaign Manager 360 (CM360)
@@ -51,9 +61,8 @@ For this step you may [create a new project instance](https://cloud.google.com/a
       * BigQuery API
       * BigQuery Storage API
       * BigQuery Data Transfer API
-      * Cloud Functions API
       * Cloud Storage API
-      * Cloud Pub/Sub API
+      * Cloud Composer API
       * Campaign Manager API
       * Search Ads API
 
@@ -108,107 +117,11 @@ For this step you may [create a new project instance](https://cloud.google.com/a
     - A data transfer from Google Cloud Storage may also used to automatically pull a specifed file which would refresh the target table at a set schedule.
 
 
-9) Create Scheduled Query
-    - [Create a scheduled query](https://cloud.google.com/bigquery/docs/scheduling-queries#setting_up_a_scheduled_query) to run transformation queries for each advertiser.
-    - Example Configuration:
-      - **Scheduled Query Name:** ```<advertiser_name/id> Profit Gen``` or Any
-      - **Destination Dataset:** Rescpective advertiser dataset created in Step 6
-      - **Destination Table:** ```conversion_final_<sa360_advertiser_id>```
-      - **Write Preference:** ```WRITE_TRUNCATE```
-      - **Query String:** Reference query code in the ```sql_query``` folder.
-
-
-10) Create Delegator Cloud Function
-    - [Create cloud function](https://cloud.google.com/functions/docs/deploying/console) with the following configurations:
-    - Step 1 configuration:
-      - **Function Name:** ```cloud_conversion_upload_delegator```
-      - **Region:** us-central1
-      - **Trigger:** Pub/Sub
-      - **Authentication:** Require authentication
-      - **Advanced:**
-        - **Memory allocated:** 2 GB
-        - **Timeout:** 540 seconds
-        - **Service Account:** App Engine default service account
-    - Step 2 configuration:
-      - **Runtime:** Python 3.7
-      - **Entry point:** ```main```
-      - **Code:** Reference code in the ```conversion_upload_delegator``` folder
-
-
-11) Create Upload Cloud Function - For this step you have the option of standing up either the CM360 upload node or the SA360 upload node.
-> NOTE: It is recommended to utilize the CM360 API for offline conversion uploads unless your use case can only be supported by the SA360 API.
-    - **(Option A)** - Create CM360 Cloud Function. [Create cloud function](https://cloud.google.com/functions/docs/deploying/console) with the following configurations:
-      - Step 1 configuration:
-        - **Function Name:** ```cm360_cloud_conversion_upload_node```
-        - **Region:** us-central1
-        - **Trigger:** Pub/Sub
-        - **Authentication:** Require authentication
-        - **Advanced:**
-          - **Memory allocated:** 256 MB
-          - **Timeout:** 540 seconds
-          - **Service Account:** App Engine default service account
-      - Step 2 configuration:
-        - **Runtime:** Python 3.7
-        - **Entry point:** ```main```
-        - **Code:** Reference code in the ```CM360_cloud_conversion_upload_node``` folder.
-
-    - **(Option B)** - Create SA360 Cloud Function. [Create cloud function](https://cloud.google.com/functions/docs/deploying/console) with the following configurations:
-      - Step 1 configuration:
-        - **Function Name:** ```sa360_cloud_conversion_upload_node```
-        - **Region:** us-central1
-        - **Trigger:** Pub/Sub
-        - **Authentication:** Require authentication
-        - **Advanced:**
-          - **Memory allocated:** 256 MB
-          - **Timeout:** 540 seconds
-          - **Service Account:** App Engine default service account
-      - Step 2 configuration:
-        - **Runtime:** Python 3.7
-        - **Entry point:** ```main```
-        - **Code:** Reference code in the ```SA360_cloud_conversion_upload_node``` folder.
-
-11) Standup Cloud Scheduler Job(s)
-    - [Create a Cloud Scheduler job](https://cloud.google.com/scheduler/docs/creating) per target advertiser. Please note that each advertiser will have its own scheduled job and Frequency should be staggered by 5 minutes within the same hour.
-    - Example configuration:
-      - **Name:** Any
-      - **Description:** Any
-      - **Frequency:**
-        - Example: starting everyday at 6 AM staggered by 5 minutes:
-          - ```0 6 * * *```
-          - ```5 6 * * *```
-          - ```10 6 * * *```
-          - etc...
-      - **Timezone:** As per your preference
-      - **Target:** Pub/Sub
-      - **Topic:** ```conversion_upload_delegator```
-      - Payload samples in the section below.
-
-
-### Cloud Scheduler Pub/Sub Payload Examples
-CM360 sample payload:
-```json
-{ //configurable in install.sh
-  "dataset_name": <DS_BUSINESS_DATA>,
-  "table_name": <CM360_TABLE>,
-  "topic": <CM360_PUBSUB_TOPIC_NAME>,
-  "cm360_config": {
-    "profile_id": <CM360_PROFILE_ID>,
-    "floodlight_activity_id": <CM360_FL_ACTIVITY_ID>,
-    "floodlight_configuration_id": <CM360_FL_CONFIG_ID>
-  }
-}
-```
-
-SA360 sample payload:
-```json
-{  
-	"table_name": "conversion_final_<SA360_advertiser_id>",  
-	"topic": "SA360_conversion_upload"  //hardcode
-}
-```
+9) Create Cloud Composer
+    - [Create a Cloud Composer](https://cloud.google.com/composer/docs/composer-2/composer-overview) to run transformation queries for each advertiser and push the conversion data to SA360/CM360.
 
 ### Quick start up guide
-[Notebook](solution_test/profit_bidder_quickstart.ipynb) uses the synthesized data, which you can run in less than 30 mins to comprehend the core concept and familiarize yourself with the code. 
+[Notebook](/solution_test/profit_bidder_quickstart.ipynb) uses the synthesized data, which you can run in less than 30 mins to comprehend the core concept and familiarize yourself with the code. 
 
 We recommend that you follow three broad phases to productionalize the solution: 
 * Phase 1 - use the notebook to valid account access, etc., 
@@ -216,4 +129,4 @@ We recommend that you follow three broad phases to productionalize the solution:
 * Phase 3 - operationalize the solution in your environment.
 
 ### Demo solution with synthesized data
-We provide synthesized test data to test the solution in the [test_solution](solution_test/) folder. Please use the install.sh with proper parameters to install the demo module.
+We provide synthesized test data to test the solution in the [test_solution](/solution_test/) folder. Please use the install.sh with proper parameters to install the demo module.
