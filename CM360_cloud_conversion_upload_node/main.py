@@ -20,55 +20,24 @@ import google.auth
 import google.auth.impersonated_credentials
 import json
 import os
-import time
 import pytz
-
-from io import StringIO
-
-import google_auth_httplib2
 from googleapiclient import discovery
-from googleapiclient import errors
-
-from google.cloud import bigquery
-from google.cloud import pubsub
-from google.cloud import storage
-
-IMPERSONATED_SVC_ACCOUNT = os.getenv('SA_EMAIL')
 
 API_SCOPES = ['https://www.googleapis.com/auth/dfareporting',
               'https://www.googleapis.com/auth/dfatrafficking',
               'https://www.googleapis.com/auth/ddmconversions',
               'https://www.googleapis.com/auth/devstorage.read_write']
 CM360_API_NAME = 'dfareporting'
-CM360_API_VERSION = 'v3.5'
-
-# Defaults to America/New_York, please update to 
-# your respective timezone if needed.
-PROJECT_TIMEZONE = 'America/New_York'
+CM360_API_VERSION = 'v4'
+PROJECT_TIMEZONE = os.getenv('TIMEZONE')
 
 def setup():
-    source_credentials, project_id = google.auth.default()
-
-    target_credentials = google.auth.impersonated_credentials.Credentials(
-        source_credentials=source_credentials,
-        target_principal=IMPERSONATED_SVC_ACCOUNT,
-        target_scopes=API_SCOPES,
-        delegates=[],
-        lifetime=500)
-
-    http = google_auth_httplib2.AuthorizedHttp(target_credentials)
-    # setup API service here
-    return discovery.build(
-        CM360_API_NAME,
-        CM360_API_VERSION,
-        cache_discovery=False,
-        http=http)
-
+    credentials, project = google.auth.default(scopes=API_SCOPES)
+    return discovery.build(CM360_API_NAME, CM360_API_VERSION, credentials=credentials)
 
 def today_date():
     tz = pytz.timezone(PROJECT_TIMEZONE)
     return datetime.datetime.now(tz).date()
-
 
 def time_now_str():
       # set correct timezone for datetime check
@@ -97,7 +66,7 @@ def upload_data(rows, profile_id, fl_configuration_id, fl_activity_id):
                 'ordinal': row['conversionId'],
                 'timestampMicros': row['conversionTimestampMicros'],
                 'value': row['conversionRevenue'],
-                'quantity': row['conversionQuantity'] #(Alternatively, this can be hardcoded to 1)
+                'quantity': row['conversionQuantity'] if 'conversionQuantity' in row else 1 #(Alternatively, this can be hardcoded to 1)
             })
             # print('Conversion: ', conversion) # uncomment if you want to output each conversion
             all_conversions = all_conversions + conversion + ','

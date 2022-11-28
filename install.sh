@@ -436,9 +436,10 @@ function create_cloud_function {
     --trigger-topic=$trigger_topic \
     --memory=$2 \
     --timeout=540s \
-    --runtime python37 \
-    --update-env-vars="SA_EMAIL=${SA_EMAIL},TIMEZONE=${SQL_TRANSFORM_TIMEZONE}" \
+    --runtime python39 \
+    --update-env-vars="SA_EMAIL=${SA_EMAIL},TIMEZONE=${SQL_TRANSFORM_TIMEZONE},GCP_PROJECT=${PROJECT}" \
     --update-labels="deploy_timestamp=$(deploy_timestamp)" \
+    --service-account $SA_EMAIL \
     --entry-point=main 
   else
     echo "Reusing ${cf_name}."
@@ -460,12 +461,12 @@ function create_scheduler {
     #   --topic="$topic" \
     #   --message-body=\'$3\'
     if [ "${DRY_RUN:-}" = "echo" ]; then
-        echo gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 6 * * *" --topic=$topic --message-body="$message_body"
+        echo gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 15 * * *" --topic=$topic --message-body="$message_body"
     else
         if [ "$VERBOSE" = "true" ]; then
             echo $scheduler_cmd
         fi
-        gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 6 * * *" --topic=$topic --message-body="'$message_body'"
+        gcloud scheduler jobs create pubsub $scheduler_name --location=$CF_REGION --schedule="0 15 * * *" --topic=$topic --message-body="'$message_body'"
     fi
     
   else
@@ -553,9 +554,14 @@ function create_sql_schedule_query {
   echo "Going to create a scheduled query."
   dataset=$1
   table_name=$2
-  # WIP
-  echo 'Please create a SQL Job scheduler using the Cloud Console \n
-  Follow the instructions from here: https://cloud.google.com/bigquery/docs/scheduling-queries#console'
+  cat profit_gen_query.sql \
+    | bq query \
+        --display_name="Scheduled Query to get SA360 conversions with profit data for Profit Bidder" \
+        --schedule="every day 13:00" \
+        --project_id=$SQL_TRANSFORM_PROJECT_ID \
+        --destination_table=$dataset'.'$table_name \
+        --use_legacy_sql=False \
+        --replace=True
 }
 
 function load_bq_table {
@@ -722,6 +728,7 @@ if [ ${ACTIVATE_APIS} -eq 1 ]; then
     "cloudscheduler"
     "doubleclickbidmanager"
     "doubleclicksearch"
+    "dfareporting"
     "pubsub"
     "storage-api"
   )
@@ -801,7 +808,7 @@ if [ ${DEPLOY_CM360_FUNCTION} -eq 1 ]; then
   # check the storage account
   create_storage_account $STORAGE_LOGS
   pushd CM360_cloud_conversion_upload_node
-  create_cloud_function $CF_CM360 "256MB" $CM360_PUBSUB_TOPIC_NAME
+  create_cloud_function $CF_CM360 "512MB" $CM360_PUBSUB_TOPIC_NAME
   popd
   if [ "$VERBOSE" = "true" ]; then
     echo
@@ -819,6 +826,7 @@ if [ ${DEPLOY_SQL_TRANSFORM} -eq 1 ]; then
   # prepare the sql file
   create_sql_transform_file
   # schedule the sql job
+  create_sql_schedule_query $DS_BUSINESS_DATA $CM360_TABLE
   popd
 fi
 

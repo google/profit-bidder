@@ -14,7 +14,7 @@
 
 from datetime import timedelta, datetime
 from airflow import DAG
-from airflow.contrib.operators.bigquery_operator import BigQueryExecuteQueryOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python import PythonOperator
 from push_conversion import push_conversion
@@ -33,25 +33,28 @@ dag = DAG(
     dag_id=PB_DAG_NAME,
     default_args=dag_args,
     end_date=None,
-    schedule_interval="@hourly")
+    schedule_interval="0 13 * * *")
 
-t1 = BigQueryExecuteQueryOperator(
-    task_id='trasnform_aggregate',
-    use_legacy_sql=False,
-    allow_large_results=True,
-    gcp_conn_id='google_cloud_default',
-    sql=f'''
-  BEGIN 
-      CALL `{PB_GCP_PROJECT}.{PB_DS_BUSINESS_DATA}.{PB_SP_DATAWRANGLING}`();
-  EXCEPTION WHEN ERROR THEN
-    SELECT
-      @@error.message,
-      @@error.stack_trace,
-      @@error.statement_text,
-      @@error.formatted_stack_trace;
-  END
-    ''',
-    dag=dag)
+t1 = BigQueryInsertJobOperator(
+    task_id="transform_aggregate",
+    configuration={
+        "query": {
+            "query": f'''
+            BEGIN
+                CALL `{PB_GCP_PROJECT}.{PB_DS_BUSINESS_DATA}.{PB_SP_DATAWRANGLING}`();
+            EXCEPTION WHEN ERROR THEN
+                SELECT
+                @@error.message,
+                @@error.stack_trace,
+                @@error.statement_text,
+                @@error.formatted_stack_trace;
+            END
+            ''',
+            "useLegacySql": False,
+        }
+    },
+    dag=dag
+)
 
 t2 = PythonOperator(
     task_id='push_conversion',
