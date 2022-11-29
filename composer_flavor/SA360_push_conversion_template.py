@@ -27,13 +27,13 @@ import google_auth_httplib2
 from googleapiclient import discovery
 from google.cloud import bigquery
 
-PB_SA_EMAIL = 'pb-profit-bidder@dp-sa-346518.iam.gserviceaccount.com' 
+PB_SA_EMAIL = '<sa_email>'
 PB_API_SCOPES = ['https://www.googleapis.com/auth/dfareporting',
               'https://www.googleapis.com/auth/dfatrafficking',
               'https://www.googleapis.com/auth/ddmconversions',
               'https://www.googleapis.com/auth/devstorage.read_write']
 PB_CM360_API_NAME = 'dfareporting'
-PB_CM360_API_VERSION = 'v3.5'
+PB_CM360_API_VERSION = 'v4'
 PB_REQUIRED_KEYS = [
     'conversionId',
     'conversionQuantity',
@@ -44,11 +44,11 @@ PB_REQUIRED_KEYS = [
 PB_GCP_PROJECT = '<project_id>'
 PB_DS_BUSINESS_DATA ='<business_dataset_name>'
 PB_CM360_TABLE = '<transformed_data_tbl>'
-PB_BATCH_SIZE=100
-PB_TIMEZONE="<timezone>"
+PB_BATCH_SIZE = 100
+PB_TIMEZONE = '<timezone>'
 PB_CM360_PROFILE_ID = '<cm_profileid>'
-PB_CM360_FL_CONFIG_ID = '<fl_activity_id>'
-PB_CM360_FL_ACTIVITY_ID = '<fl_config_id>'
+PB_CM360_FL_CONFIG_ID = '<fl_config_id>'
+PB_CM360_FL_ACTIVITY_ID = '<fl_activity_id>'
 
 def today_date(timezone):
     """Returns today's date using the timezone
@@ -160,8 +160,8 @@ def setup(sa_email, api_scopes, api_name, api_version):
           api_version,
           cache_discovery=False,
           http=http)
-    except:
-        print('Could not authenticate')    
+    except Exception as e:
+        print(f'Could not authenticate: {str(e)}')
 
 
 def upload_data(timezone, rows, profile_id, fl_configuration_id, fl_activity_id):
@@ -196,7 +196,7 @@ def upload_data(timezone, rows, profile_id, fl_configuration_id, fl_activity_id)
                   'ordinal': row['conversionId'],
                   'timestampMicros': row['conversionTimestampMicros'],
                   'value': row['conversionRevenue'],
-                  'quantity': row['conversionQuantity'] #(Alternatively, this can be hardcoded to 1)
+                  'quantity': row['conversionQuantity'] if 'conversionQuantity' in row else 1 #(Alternatively, this can be hardcoded to 1)
               })
               # print('Conversion: ', conversion) # uncomment if you want to output each conversion
               all_conversions = all_conversions + conversion + ','
@@ -204,9 +204,9 @@ def upload_data(timezone, rows, profile_id, fl_configuration_id, fl_activity_id)
           payload = json.loads(all_conversions)
           print(f'CM360 request payload: {payload}')
           request = service.conversions().batchinsert(profileId=profile_id, body=payload)
-          print('[{}] - CM360 API Request: '.format(time_now_str()), request)
+          print('[{}] - CM360 API Request: '.format(time_now_str(timezone)), request)
           response = request.execute()
-          print('[{}] - CM360 API Response: '.format(time_now_str()), response)
+          print('[{}] - CM360 API Response: '.format(time_now_str(timezone)), response)
           if not response['hasFailures']:
               print('Successfully inserted batch of 100.')
           else:
@@ -222,8 +222,8 @@ def upload_data(timezone, rows, profile_id, fl_configuration_id, fl_activity_id)
           print('Either finished or found errors.')
           currentrow += 100
           all_conversions = """{"kind": "dfareporting#conversionsBatchInsertRequest", "conversions": ["""
-    except:
-        print('Could not authenticate')    
+    except Exception as e:
+        print(f'Error: {str(e)}')
 
 def partition_and_distribute(cloud_client, table_ref_name, batch_size, timezone, 
                              profile_id, fl_configuration_id, fl_activity_id):

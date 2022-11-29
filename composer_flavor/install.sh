@@ -140,7 +140,7 @@ CLIENT_MARGIN_DATA_FILE_WITH_PATH=`echo $HOME`/$CLIENT_MARGIN_DATA_FILE_NAME
 COMPOSER_LOCATION="us-central1"
 COMPOSER_NAME=$SOLUTION_PREFIX"composer"
 COMPOSER_VERSION="composer-2.0.18-airflow-2.2.5"
-SA_ROLES="roles/bigquery.user roles/bigquery.jobUser roles/composer.worker roles/composer.ServiceAgentV2Ext"
+SA_ROLES="roles/bigquery.user roles/bigquery.jobUser roles/composer.worker roles/composer.ServiceAgentV2Ext roles/iam.serviceAccountTokenCreator"
 DAG_ID=$SOLUTION_PREFIX"pipeline"
 
 CM360_TABLE="my_transformed_data"
@@ -482,16 +482,16 @@ function create_bq_sp {
   echo "Checking if the preq table exists: '${dataset}.${table_name}'" 
   if [[ "$sql_result" == *"1"* ]]; then
     sql_result=$(list_bq_sp $1 $2)
-    echo "Creating BQ Stored Proc: '${dataset}.${sp_name}'" 
+    echo "Creating BQ Stored Proc: '${dataset}.${sp_name}'"
     if [[ "$sql_result" == *"1"* ]]; then
       echo "Deleting existing ${dataset}.${sp_name}."
-      delete_bq_sp $1 $2  
-      if [ "${DRY_RUN:-}" = "echo" ]; then
-          echo "bq query --use_legacy_sql=false --project_id=${PROJECT} < profit_gen_sp.sql"
-      else
-          bq query --use_legacy_sql=false --project_id=${PROJECT} < profit_gen_sp.sql
-      fi
-    fi  
+      delete_bq_sp $1 $2
+    fi
+    if [ "${DRY_RUN:-}" = "echo" ]; then
+        echo "bq query --use_legacy_sql=false --project_id=${PROJECT} < profit_gen_sp.sql"
+    else
+        bq query --use_legacy_sql=false --project_id=${PROJECT} < profit_gen_sp.sql
+    fi
   echo "Create the stored procedure after CM tables are created...e.g. Campaign, Conversion tbl"
   fi  
 }
@@ -529,15 +529,17 @@ function prepare_SA360_push_conversion_py {
   maybe_run cp $SA360_PUSH_CONVERSION_PY_TEMPLATE_FILE $SA360_PUSH_CONVERSION_PY_FILE
   os_type=$(uname -a)
   if [[ "$os_type" == *"Linux"* ]]; then
+    maybe_run sed -i "s|<sa_email>|$SA_EMAIL|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "s|<project_id>|$SQL_TRANSFORM_PROJECT_ID|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "s|<business_dataset_name>|$SQL_TRANSFORM_BUSINESS_DATASET_NAME|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "s|<transformed_data_tbl>|$CM360_TABLE|" $SA360_PUSH_CONVERSION_PY_FILE
-    maybe_run sed -i "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" profit_gen_sp.sql
+    maybe_run sed -i "s|<timezone>|$SQL_TRANSFORM_TIMEZONE|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "s|<cm_profileid>|$CM360_PROFILE_ID|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "s|<fl_activity_id>|$CM360_FL_ACTIVITY_ID|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "s|<fl_config_id>|$CM360_FL_CONFIG_ID|" $SA360_PUSH_CONVERSION_PY_FILE
   else
     # below works in the shell of Mac
+    maybe_run sed -i "" "s|<sa_email>|$SA_EMAIL|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "" "s|<project_id>|$SQL_TRANSFORM_PROJECT_ID|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "" "s|<business_dataset_name>|$SQL_TRANSFORM_BUSINESS_DATASET_NAME|" $SA360_PUSH_CONVERSION_PY_FILE
     maybe_run sed -i "" "s|<transformed_data_tbl>|$CM360_TABLE|" $SA360_PUSH_CONVERSION_PY_FILE
@@ -571,7 +573,6 @@ function prepare_dag_py {
 }
 
 function deploy_code_dag {
- composer_name=$1  
   composer_name=$1
   RETVAL=$( get_composer_storage_account $composer_name)
   echo $RETVAL
@@ -897,6 +898,15 @@ fi
 
 # Deploys the Cloud Composer
 if [ ${DEPLOY_COMPOSER} -eq 1 ]; then
+
+  # Grant ServiceAgentV3Ext to service-PROJECT_NUMBER service account to avoid error
+  PROJECT_NUMBER=$(gcloud projects list --filter="$(gcloud config get-value project)" --format="value(PROJECT_NUMBER)")
+  COMPOSER_API_SERVICE_AGENT="service-${PROJECT_NUMBER}@cloudcomposer-accounts.iam.gserviceaccount.com"
+
+  maybe_run gcloud projects add-iam-policy-binding $PROJECT \
+      --member serviceAccount:$COMPOSER_API_SERVICE_AGENT \
+      --role roles/composer.ServiceAgentV2Ext
+
   # provison a cloud composer environment if doesn't exists
   create_composer $COMPOSER_NAME $SA_EMAIL
   # deploy the code and the dag
